@@ -21,7 +21,7 @@ spec:
             - "-c"
             - |
               echo "📥 Cloning repository..."
-              git clone https://github.com/${{ github.repository }}.git /repo
+              git clone https://github.com/{{ (.Values.github).repository | default "your-org/your-repo" }}.git /repo
               cd /repo
               echo "✅ Repository cloned successfully"
               ls -la

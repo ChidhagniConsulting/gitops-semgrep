@@ -37,28 +37,51 @@ jobs:
       - name: Validate YAML files
         run: |
           echo "Validating YAML files..."
-          # Use helm template to validate all YAML files
-          for file in $(find . -name "*.yml" -o -name "*.yaml"); do
-            echo "Validating $file"
-            if [[ "$file" == *"values.yaml" ]]; then
-              # For values files, try to template with helm
-              helm template test ./k8s-jobs -f "$file" --dry-run > /dev/null 2>&1 || echo "Warning: $file may have issues"
-            else
-              # For other YAML files, basic syntax check
-              kubectl apply --dry-run=client -f "$file" > /dev/null 2>&1 || echo "Warning: $file may have issues"
-            fi
-          done
+          # Basic YAML syntax validation using Python
+          python3 -c "
+          import yaml
+          import sys
+          import os
+
+          def validate_yaml(file_path):
+              # Skip Helm template files as they contain template syntax
+              if '/templates/' in file_path:
+                  print(f'⏭️ {file_path} - Skipped (Helm template)')
+                  return True
+
+              try:
+                  with open(file_path, 'r') as f:
+                      yaml.safe_load(f)
+                  print(f'✅ {file_path} - Valid YAML')
+                  return True
+              except Exception as e:
+                  print(f'❌ {file_path} - Invalid YAML: {e}')
+                  return False
+
+          valid = True
+          for root, dirs, files in os.walk('.'):
+              for file in files:
+                  if file.endswith(('.yml', '.yaml')):
+                      file_path = os.path.join(root, file)
+                      if not validate_yaml(file_path):
+                          valid = False
+
+          if not valid:
+              sys.exit(1)
+          "
           
       - name: Validate Helm charts
         run: |
           echo "Validating Helm charts..."
           # Lint with default values.yaml
           helm lint ./k8s-jobs || exit 1
-          # Lint with environment-specific values (only dev for now)
-          if [ -f "environments/dev/values.yaml" ]; then
-            echo "Linting with environments/dev/values.yaml"
-            helm lint ./k8s-jobs -f "environments/dev/values.yaml" || exit 1
-          fi
+          # Lint with environment-specific values
+          for env in dev staging prod beta; do
+            if [ -f "environments/$env/values.yaml" ]; then
+              echo "Linting with environments/$env/values.yaml"
+              helm lint ./k8s-jobs -f "environments/$env/values.yaml" || exit 1
+            fi
+          done
           
       - name: Check file structure
         run: |
