@@ -1,8 +1,12 @@
 # Production environment configuration
-# Token will be injected from GitHub Secrets
+# Uses token from GitHub Secrets for production environment
+environment: prod
+github:
+  repository: your-org/gitops-semgrep
+
 semgrep:
-  token: ""  # Will be set via GitHub Secrets (SEMGREP_TOKEN_PROD)
-  configPath: /repo/rules/backend/
+  token: ${SEMGREP_TOKEN_PROD}
+  configPath: /repo/rules/
   
 # Additional configuration options
 job:
