@@ -1,0 +1,17 @@
+apiVersion: v2
+name: semgrep-job
+description: A Helm chart for running Semgrep security scans as Kubernetes Jobs
+type: application
+version: 0.1.0
+appVersion: "1.0"
+keywords:
+  - semgrep
+  - security
+  - scanning
+  - gitops
+home: https://github.com/your-org/gitops-semgrep
+sources:
+  - https://github.com/your-org/gitops-semgrep
+maintainers:
+  - name: DevOps Team
+    email: devops@yourcompany.com

@@ -1,0 +1,100 @@
+name: Semgrep On-Demand Scan
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (dev, beta, prod)"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - beta
+          - prod
+
+jobs:
+  scan:
+    runs-on: self-hosted
+    env:
+      ENV: ${{ github.event.inputs.environment || 'dev' }}
+      NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+          
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+        
+      - name: Start Minikube (dev only)
+        if: env.ENV == 'dev'
+        run: |
+          echo "Starting Minikube for dev environment..."
+          minikube start --cpus=4 --memory=8192 --driver=docker || echo "Minikube already running"
+          minikube status
+          
+      - name: Configure kubectl context
+        run: |
+          if [ "${{ env.ENV }}" == "dev" ]; then
+            kubectl config use-context minikube
+          fi
+          kubectl cluster-info
+          
+      - name: Create namespace
+        run: |
+          echo "Creating namespace: ${{ env.NAMESPACE }}"
+          kubectl get ns ${{ env.NAMESPACE }} || kubectl create ns ${{ env.NAMESPACE }}
+          
+      - name: Set Semgrep Token
+        id: set-token
+        run: |
+          if [ "${{ env.ENV }}" == "dev" ]; then
+            echo "Using dev token from values.yaml"
+            echo "token_override=" >> $GITHUB_OUTPUT
+          elif [ "${{ env.ENV }}" == "beta" ]; then
+            echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_BETA }}" >> $GITHUB_OUTPUT
+          elif [ "${{ env.ENV }}" == "prod" ]; then
+            echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_PROD }}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Deploy Semgrep Job
+        run: |
+          echo "Deploying Semgrep Job to ${{ env.ENV }} environment..."
+          helm upgrade --install semgrep-job ./k8s-jobs \
+            -f environments/${{ env.ENV }}/values.yaml \
+            ${{ steps.set-token.outputs.token_override }} \
+            --set environment=${{ env.ENV }} \
+            --set github.repository=${{ github.repository }} \
+            -n ${{ env.NAMESPACE }} \
+            --wait --timeout=10m
+            
+      - name: Wait for Job Completion
+        run: |
+          echo "Waiting for Semgrep job to complete..."
+          kubectl wait --for=condition=complete job/semgrep-scan-once \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=600s || echo "Job may still be running"
+            
+      - name: View Semgrep Logs
+        run: |
+          echo "=== SEMGREP JOB STATUS ==="
+          kubectl get jobs -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "=== SEMGREP LOGS ==="
+          kubectl logs job/semgrep-scan-once -n ${{ env.NAMESPACE }} --all-containers=true || echo "No logs available yet"
+          
+      - name: Cleanup (optional)
+        if: env.ENV == 'dev'
+        run: |
+          echo "Cleaning up dev resources..."
+          kubectl delete job semgrep-scan-once -n ${{ env.NAMESPACE }} || true

@@ -1,0 +1,19 @@
+# Production environment configuration
+# Token will be injected from GitHub Secrets
+semgrep:
+  token: ""  # Will be set via GitHub Secrets (SEMGREP_TOKEN_PROD)
+  configPath: /repo/rules/backend/
+  
+# Additional configuration options
+job:
+  name: semgrep-scan-once
+  restartPolicy: OnFailure
+  
+# Resource limits for production environment
+resources:
+  limits:
+    cpu: "4"
+    memory: "8Gi"
+  requests:
+    cpu: "2"
+    memory: "4Gi"

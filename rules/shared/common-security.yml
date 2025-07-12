@@ -1,0 +1,32 @@
+rules:
+  - id: hardcoded-api-key
+    message: Hardcoded API key detected
+    languages: [javascript, typescript, java, python, go]
+    severity: ERROR
+    patterns:
+      - pattern-regex: '(?i)(api[_-]?key|apikey|access[_-]?token|secret[_-]?key)\s*[:=]\s*["\'][a-zA-Z0-9]{20,}["\']'
+    fix: Use environment variables or secure configuration management
+    
+  - id: hardcoded-url
+    message: Hardcoded URL detected - consider using configuration
+    languages: [javascript, typescript, java, python, go]
+    severity: INFO
+    patterns:
+      - pattern-regex: 'https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    fix: Use configuration files or environment variables for URLs
+    
+  - id: todo-fixme-comments
+    message: TODO/FIXME comment found
+    languages: [javascript, typescript, java, python, go]
+    severity: INFO
+    patterns:
+      - pattern-regex: '(?i)(TODO|FIXME|HACK|XXX):'
+    fix: Address the TODO/FIXME or create a proper issue
+    
+  - id: debug-statements
+    message: Debug statement detected
+    languages: [javascript, typescript, java, python, go]
+    severity: INFO
+    patterns:
+      - pattern-regex: '(?i)(debug|trace)\s*\('
+    fix: Remove debug statements before production deployment

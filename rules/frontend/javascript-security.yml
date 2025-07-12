@@ -1,0 +1,31 @@
+rules:
+  - id: javascript-xss-prevention
+    message: Potential XSS vulnerability detected
+    languages: [javascript, typescript]
+    severity: ERROR
+    patterns:
+      - pattern: |
+          document.write($X)
+      - pattern: |
+          $EL.innerHTML = $X
+      - pattern: |
+          $EL.outerHTML = $X
+    fix: Use textContent instead of innerHTML, or sanitize the input
+    
+  - id: javascript-eval-usage
+    message: Use of eval() detected - potential security risk
+    languages: [javascript, typescript]
+    severity: WARNING
+    patterns:
+      - pattern: eval($X)
+      - pattern: new Function($X)
+    fix: Avoid using eval() or Function constructor
+    
+  - id: javascript-console-log
+    message: Console.log statement found - remove before production
+    languages: [javascript, typescript]
+    severity: INFO
+    patterns:
+      - pattern: console.log($X)
+      - pattern: console.debug($X)
+    fix: Remove console statements or use proper logging

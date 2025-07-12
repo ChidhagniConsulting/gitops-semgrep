@@ -1,0 +1,38 @@
+rules:
+  - id: java-sql-injection
+    message: Potential SQL injection vulnerability
+    languages: [java]
+    severity: ERROR
+    patterns:
+      - pattern: |
+          $STMT.executeQuery("..." + $VAR + "...")
+      - pattern: |
+          $STMT.execute("..." + $VAR + "...")
+    fix: Use prepared statements with parameterized queries
+    
+  - id: java-hardcoded-password
+    message: Hardcoded password detected
+    languages: [java]
+    severity: ERROR
+    patterns:
+      - pattern: |
+          String $VAR = "password";
+      - pattern: |
+          String $VAR = "secret";
+    fix: Use environment variables or secure configuration
+    
+  - id: java-system-exit
+    message: System.exit() call detected
+    languages: [java]
+    severity: WARNING
+    patterns:
+      - pattern: System.exit($X)
+    fix: Use proper exception handling instead of System.exit()
+    
+  - id: java-printStackTrace
+    message: printStackTrace() usage detected
+    languages: [java]
+    severity: INFO
+    patterns:
+      - pattern: $E.printStackTrace()
+    fix: Use proper logging framework instead of printStackTrace()

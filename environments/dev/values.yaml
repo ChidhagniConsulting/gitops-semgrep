@@ -1,0 +1,23 @@
+# Development environment configuration
+# Uses hardcoded token for local Minikube development
+environment: dev
+github:
+  repository: your-org/gitops-semgrep
+
+semgrep:
+  token: dummy-local-token
+  configPath: /repo/rules/frontend/
+  
+# Additional configuration options
+job:
+  name: semgrep-scan-once
+  restartPolicy: OnFailure
+  
+# Resource limits for dev environment
+resources:
+  limits:
+    cpu: "1"
+    memory: "2Gi"
+  requests:
+    cpu: "500m"
+    memory: "1Gi"

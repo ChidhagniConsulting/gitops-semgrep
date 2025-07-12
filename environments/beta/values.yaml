@@ -1,0 +1,19 @@
+# Beta environment configuration
+# Token will be injected from GitHub Secrets
+semgrep:
+  token: ""  # Will be set via GitHub Secrets (SEMGREP_TOKEN_BETA)
+  configPath: /repo/rules/backend/
+  
+# Additional configuration options
+job:
+  name: semgrep-scan-once
+  restartPolicy: OnFailure
+  
+# Resource limits for beta environment
+resources:
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+  requests:
+    cpu: "1"
+    memory: "2Gi"

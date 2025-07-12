@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.job.name | default "semgrep-scan-once" }}
+  labels:
+    app: semgrep
+    environment: {{ .Values.environment | default "dev" }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: semgrep
+        environment: {{ .Values.environment | default "dev" }}
+    spec:
+      restartPolicy: {{ .Values.job.restartPolicy | default "OnFailure" }}
+      containers:
+        - name: semgrep
+          image: returntocorp/semgrep:latest
+          command: ["semgrep"]
+          args: 
+            - "--version"
+          env:
+            - name: SEMGREP_TOKEN
+              value: "{{ .Values.semgrep.token }}"
+            - name: SEMGREP_SEND_METRICS
+              value: "off"
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu | quote }}
+              memory: {{ .Values.resources.limits.memory | quote }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu | quote }}
+              memory: {{ .Values.resources.requests.memory | quote }}
