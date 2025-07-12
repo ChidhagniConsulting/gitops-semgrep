@@ -193,37 +193,44 @@ jobs:
           kubectl get pods -n ${{ env.NAMESPACE }} -o wide
           echo "✅ Deployment health check completed"
 
-  # Cleanup stage (optional)
-  cleanup:
-    runs-on: self-hosted
-    needs: deploy-minikube
-    if: always() && github.ref == 'refs/heads/dev'
-    steps:
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-          
-      - name: Cleanup dev resources
+      - name: Cleanup completed jobs (dev only)
+        if: env.ENV == 'dev'
         run: |
-          echo "🧹 Cleaning up dev resources..."
-          kubectl delete job semgrep-scan-once -n semgrep-dev || true
+          echo "🧹 Cleaning up completed jobs in dev environment..."
+          kubectl delete job semgrep-scan-once -n ${{ env.NAMESPACE }} --ignore-not-found=true || true
           echo "✅ Cleanup completed"
+
 
   # Notification stage
   notify:
     runs-on: ubuntu-latest
-    needs: [deploy-minikube, cleanup]
+    needs: [lint, build-test, deploy-minikube]
     if: always()
     steps:
-      - name: Deployment status
+      - name: Pipeline status
         run: |
-          if [ "${{ needs.deploy-minikube.result }}" == "success" ]; then
-            echo "✅ CI Pipeline completed successfully!"
-            echo "Environment: ${{ github.event.inputs.environment || 'dev' }}"
-            echo "Deployment: Minikube"
+          echo "=== CI Pipeline Status ==="
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Build-Test: ${{ needs.build-test.result }}"
+          echo "Deploy: ${{ needs.deploy-minikube.result }}"
+          echo ""
+
+          # Check if core stages (lint and build-test) passed
+          if [ "${{ needs.lint.result }}" == "success" ] && [ "${{ needs.build-test.result }}" == "success" ]; then
+            if [ "${{ needs.deploy-minikube.result }}" == "success" ]; then
+              echo "✅ CI Pipeline completed successfully with deployment!"
+              echo "Environment: ${{ github.event.inputs.environment || 'dev' }}"
+              echo "Deployment: Minikube"
+            elif [ "${{ needs.deploy-minikube.result }}" == "skipped" ]; then
+              echo "✅ CI Pipeline completed successfully!"
+              echo "Note: Deployment was skipped (likely due to PR or branch restrictions)"
+            else
+              echo "⚠️ CI Pipeline validation passed, but deployment failed!"
+              echo "Check the deployment logs for details"
+              exit 1
+            fi
           else
             echo "❌ CI Pipeline failed!"
             echo "Check the logs for details"
             exit 1
-          fi 
+          fi

@@ -48,13 +48,15 @@ You need to configure the following secrets in your GitHub repository:
   - Deploys Semgrep job
   - Verifies deployment
   - Shows logs and health status
+  - Cleans up completed jobs (dev environment only)
 
-### 4. Cleanup Stage
-- **Purpose**: Cleans up resources (dev environment only)
-- **Runs on**: Self-hosted runner
+### 4. Notification Stage
+- **Purpose**: Reports pipeline status
+- **Runs on**: Ubuntu latest
 - **Actions**:
-  - Removes completed jobs
-  - Frees up resources
+  - Checks all job results
+  - Reports success/failure status
+  - Handles skipped deployments gracefully
 
 ## 🎯 Usage
 
@@ -104,12 +106,14 @@ graph TD
     B --> C[Build-Test Stage]
     C --> D{Is Push to main/dev?}
     D -->|Yes| E[Deploy to Minikube]
-    D -->|No| F[End]
+    D -->|No| F[Notify Status - Skipped]
     E --> G[Verify Deployment]
     G --> H[Show Logs]
     H --> I[Health Check]
     I --> J[Cleanup Dev Resources]
-    J --> K[Notify Status]
+    J --> K[Notify Status - Success]
+    F --> L[End]
+    K --> L[End]
 ```
 
 ## 🛠️ Configuration
