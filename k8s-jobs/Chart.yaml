@@ -4,6 +4,7 @@ description: A Helm chart for running Semgrep security scans as Kubernetes Jobs
 type: application
 version: 0.1.0
 appVersion: "1.0"
+icon: https://raw.githubusercontent.com/returntocorp/semgrep/develop/semgrep/semgrep_interfaces/semgrep_output_v1/favicon.ico
 keywords:
   - semgrep
   - security

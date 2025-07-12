@@ -110,6 +110,14 @@ test_deployment() {
     # Test Helm chart
     print_status "Testing Helm chart..."
     helm lint ./k8s-jobs
+
+    # Test with environment values
+    for env in dev staging prod; do
+        if [ -f "environments/$env/values.yaml" ]; then
+            print_status "Testing with environments/$env/values.yaml"
+            helm lint ./k8s-jobs -f "environments/$env/values.yaml"
+        fi
+    done
     
     # Test template rendering
     print_status "Testing template rendering..."

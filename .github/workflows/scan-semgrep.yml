@@ -52,7 +52,15 @@ jobs:
       - name: Validate Helm charts
         run: |
           echo "Validating Helm charts..."
+          # Lint with default values.yaml
           helm lint ./k8s-jobs || exit 1
+          # Lint with environment-specific values
+          for env in dev staging prod; do
+            if [ -f "environments/$env/values.yaml" ]; then
+              echo "Linting with environments/$env/values.yaml"
+              helm lint ./k8s-jobs -f "environments/$env/values.yaml" || exit 1
+            fi
+          done
           
       - name: Check file structure
         run: |
