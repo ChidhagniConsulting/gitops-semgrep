@@ -1,23 +1,24 @@
 # Development environment configuration
-# Uses hardcoded token for local Minikube development
+# Uses a placeholder token for local Minikube development
 environment: dev
+
 github:
-  repository: ChidhagniConsulting/gitops-semgrep
+  repository: ChidhagniConsulting/gitops-semgrep  # GitHub repo in org/repo format
 
 semgrep:
-  token: dummy-local-token
-  configPath: /repo/rules/frontend/
+  token: "<your-semgrep-token-here>"  # Replace with your actual Semgrep token for dev
+  configPath: /repo/rules/frontend/   # Path to rules directory (change if needed)
   
 # Additional configuration options
 job:
-  name: semgrep-scan-once
-  restartPolicy: OnFailure
+  name: semgrep-scan-once            # Name of the Kubernetes Job
+  restartPolicy: OnFailure           # Job restart policy (OnFailure recommended for dev)
   
 # Resource limits for dev environment
 resources:
   limits:
-    cpu: "1"
-    memory: "2Gi"
+    cpu: "1"                         # Max CPU for the job
+    memory: "2Gi"                    # Max memory for the job
   requests:
-    cpu: "500m"
-    memory: "1Gi"
+    cpu: "500m"                      # Minimum CPU requested
+    memory: "1Gi"                    # Minimum memory requested

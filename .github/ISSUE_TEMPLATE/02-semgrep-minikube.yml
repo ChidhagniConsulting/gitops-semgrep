@@ -1,39 +1,90 @@
-name: "Run Semgrep in Minikube"
-description: "Trigger a Semgrep scan in your local Minikube cluster"
-title: "[Semgrep Minikube] Scan Request"
-labels: ["semgrep", "automation", "minikube"]
+name: "Deploy Semgrep to Local Minikube"
+description: "Deploy GitOps Semgrep to your local Minikube cluster"
+title: "[Deploy] Semgrep to Minikube"
+labels: ["semgrep", "minikube", "deployment"]
 body:
   - type: markdown
     attributes:
       value: |
-        ## 🚀 Semgrep Minikube Deployment Request
+        ## 🚀 Deploy Semgrep to Local Minikube
 
-        This issue will trigger a Semgrep scan in your local Minikube cluster using the Helm chart.
+        This will generate the deployment commands for your local Minikube cluster.
 
-        **Note**: This workflow is configured for local deployment based on your preferences.
+        **Prerequisites:**
+        - ✅ Minikube is running locally
+        - ✅ Helm is installed
+        - ✅ kubectl is configured for your Minikube cluster
 
-  - type: input
-    id: workflow_trigger
+  - type: dropdown
+    id: environment
     attributes:
-      label: "Workflow Trigger"
-      description: "This field helps identify the workflow to trigger"
-      value: "semgrep-minikube"
+      label: "Environment"
+      description: "Select the environment configuration to use"
+      options:
+        - "dev"
+        - "beta"
+        - "prod"
+      default: 0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scan_target
+    attributes:
+      label: "What to Scan"
+      description: "Choose what Semgrep should scan"
+      options:
+        - "Frontend rules (JavaScript/TypeScript)"
+        - "Backend rules (Java)"
+        - "Shared rules (Common security)"
+        - "All rules (Frontend + Backend + Shared)"
+        - "Custom rules (specify in notes)"
+      default: 3
     validations:
       required: true
 
   - type: input
-    id: target_environment
+    id: semgrep_token
     attributes:
-      label: "Target Environment"
-      description: "Which environment values should be used? (dev, beta, prod)"
-      placeholder: "dev"
+      label: "Semgrep Token (Optional)"
+      description: "Your Semgrep token for enhanced scanning (leave empty for basic scan)"
+      placeholder: "your-semgrep-token-here"
     validations:
-      required: true
+      required: false
+
+  - type: checkboxes
+    id: deployment_options
+    attributes:
+      label: "Deployment Options"
+      description: "Select deployment preferences"
+      options:
+        - label: "Generate deployment commands only (recommended)"
+          required: false
+        - label: "Include cleanup commands"
+          required: false
+        - label: "Show logs after deployment"
+          required: false
+
+  - type: textarea
+    id: custom_config
+    attributes:
+      label: "Custom Configuration (Optional)"
+      description: "Any custom Helm values or configuration overrides"
+      placeholder: |
+        # Example:
+        resources:
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+      render: yaml
+    validations:
+      required: false
+
   - type: textarea
     id: notes
     attributes:
       label: "Additional Notes"
-      description: "Any extra information or context?"
-      placeholder: "Optional"
+      description: "Any additional context or requirements"
+      placeholder: "Optional notes..."
     validations:
       required: false

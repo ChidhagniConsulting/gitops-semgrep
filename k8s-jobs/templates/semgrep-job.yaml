@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Values.job.name | default "semgrep-scan-once" }}
+  name: {{ .Values.job.name | default "semgrep-scan" }}
   labels:
     app: semgrep
     environment: {{ .Values.environment | default "dev" }}
@@ -13,17 +13,73 @@ spec:
         environment: {{ .Values.environment | default "dev" }}
     spec:
       restartPolicy: {{ .Values.job.restartPolicy | default "OnFailure" }}
+      initContainers:
+        - name: git-clone
+          image: alpine/git:latest
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              echo "Cloning repository..."
+              git clone https://github.com/{{ .Values.github.repository }}.git /repo
+              echo "Repository cloned successfully"
+              ls -la /repo
+          volumeMounts:
+            - name: repo-volume
+              mountPath: /repo
       containers:
         - name: semgrep
           image: returntocorp/semgrep:latest
-          command: ["semgrep"]
-          args: 
-            - "--version"
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              echo "Starting Semgrep scan..."
+              echo "Environment: {{ .Values.environment }}"
+              echo "Rules path: {{ .Values.semgrep.configPath }}"
+              echo "Repository: {{ .Values.github.repository }}"
+
+              cd /repo
+
+              # Check if rules directory exists
+              if [ -d "{{ .Values.semgrep.configPath }}" ]; then
+                echo "Using custom rules from: {{ .Values.semgrep.configPath }}"
+                semgrep --config="{{ .Values.semgrep.configPath }}" \
+                  --json \
+                  --output=/results/semgrep-results.json \
+                  .
+              else
+                echo "Custom rules not found, using default rules"
+                semgrep --config=auto \
+                  --json \
+                  --output=/results/semgrep-results.json \
+                  .
+              fi
+
+              echo "Scan completed. Results:"
+              cat /results/semgrep-results.json | jq '.' || cat /results/semgrep-results.json
+
+              # Count findings
+              FINDINGS=$(cat /results/semgrep-results.json | jq '.results | length' 2>/dev/null || echo "0")
+              echo "Total findings: $FINDINGS"
+
+              if [ "$FINDINGS" -gt "0" ]; then
+                echo "⚠️  Security issues found!"
+                exit 1
+              else
+                echo "✅ No security issues found!"
+                exit 0
+              fi
           env:
-            - name: SEMGREP_TOKEN
+            - name: SEMGREP_APP_TOKEN
               value: "{{ .Values.semgrep.token }}"
             - name: SEMGREP_SEND_METRICS
               value: "off"
+          volumeMounts:
+            - name: repo-volume
+              mountPath: /repo
+            - name: results-volume
+              mountPath: /results
           resources:
             limits:
               cpu: {{ .Values.resources.limits.cpu | quote }}
@@ -31,3 +87,8 @@ spec:
             requests:
               cpu: {{ .Values.resources.requests.cpu | quote }}
               memory: {{ .Values.resources.requests.memory | quote }}
+      volumes:
+        - name: repo-volume
+          emptyDir: {}
+        - name: results-volume
+          emptyDir: {}
