@@ -1,0 +1,53 @@
+# Configuration for persistent ARC runners
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arc-persistent-config
+  namespace: arc-runners
+data:
+  # Helm values for persistent runners
+  values.yaml: |
+    # Minimum number of runners to keep running
+    minRunners: 1
+    
+    # Maximum number of runners
+    maxRunners: 3
+    
+    # Scale down delay (how long to wait before terminating idle runners)
+    scaleDownDelaySecondsAfterScaleOut: 300  # 5 minutes
+    
+    # Runner configuration
+    template:
+      spec:
+        containers:
+        - name: runner
+          image: ghcr.io/actions/actions-runner:latest
+          resources:
+            requests:
+              cpu: "0.5"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          # Keep tools persistent in runner
+          volumeMounts:
+          - name: tool-cache
+            mountPath: /opt/hostedtoolcache
+        volumes:
+        - name: tool-cache
+          persistentVolumeClaim:
+            claimName: runner-tool-cache
+
+---
+# Persistent Volume Claim for tool cache
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: runner-tool-cache
+  namespace: arc-runners
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

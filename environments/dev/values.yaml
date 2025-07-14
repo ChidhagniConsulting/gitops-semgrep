@@ -20,5 +20,5 @@ resources:
     cpu: "1"                         # Max CPU for the job
     memory: "2Gi"                    # Max memory for the job
   requests:
-    cpu: "500m"                      # Minimum CPU requested
-    memory: "1Gi"                    # Minimum memory requested
+    cpu: "500m"                      # Minimum CPU requested 
+    memory: "1Gi"                    # Minimum memory requested 
