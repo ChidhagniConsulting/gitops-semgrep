@@ -1,0 +1,25 @@
+name: "Run Semgrep in Minikube"
+description: "Trigger a Semgrep scan in your local Minikube cluster"
+title: "[Semgrep Minikube] "
+labels: ["semgrep", "automation", "minikube"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue will trigger a Semgrep scan in your local Minikube cluster using the Helm chart.
+  - type: input
+    id: target_environment
+    attributes:
+      label: "Target Environment"
+      description: "Which environment values should be used? (dev, beta, prod)"
+      placeholder: "dev"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Additional Notes"
+      description: "Any extra information or context?"
+      placeholder: "Optional"
+    validations:
+      required: false 

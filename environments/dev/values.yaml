@@ -2,7 +2,7 @@
 # Uses hardcoded token for local Minikube development
 environment: dev
 github:
-  repository: your-org/gitops-semgrep
+  repository: ChidhagniConsulting/gitops-semgrep
 
 semgrep:
   token: dummy-local-token

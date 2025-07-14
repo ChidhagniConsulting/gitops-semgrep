@@ -1,0 +1,27 @@
+name: Run Semgrep in Minikube
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  run-semgrep-minikube:
+    if: contains(github.event.issue.labels.*.name, 'semgrep') && contains(github.event.issue.labels.*.name, 'minikube')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Minikube
+        uses: medyagh/setup-minikube@v2
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+
+      - name: Deploy Semgrep Job
+        run: |
+          helm upgrade --install semgrep-job ./k8s-jobs \
+            --values ./environments/dev/values.yaml
+        # Note: This uses 'dev' as a placeholder. Dynamic environment selection from issue body requires a custom script.
+
+      # Optionally, add steps to collect results and comment on the issue 
