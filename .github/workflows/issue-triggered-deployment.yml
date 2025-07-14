@@ -172,13 +172,21 @@ jobs:
       # Wait for Semgrep job to become ready
       - name: Wait for Semgrep Job to be Ready
         run: |
-          echo "📋 Checking if job was created..."
-          if kubectl get job/semgrep-scan -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
-            echo "✅ Job found, waiting for completion..."
-            kubectl wait --for=condition=complete job/semgrep-scan -n ${{ env.NAMESPACE }} --timeout=300s || \
-            kubectl wait --for=condition=failed job/semgrep-scan -n ${{ env.NAMESPACE }} --timeout=10s
+          echo "📋 Checking for Semgrep jobs..."
+
+          # Find the actual job name (could be semgrep-scan or semgrep-scan-once)
+          JOB_NAME=$(kubectl get jobs -n ${{ env.NAMESPACE }} -l app=semgrep -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+          if [ -n "$JOB_NAME" ]; then
+            echo "✅ Job found: $JOB_NAME"
+            echo "📋 Waiting for job completion..."
+            kubectl wait --for=condition=complete job/$JOB_NAME -n ${{ env.NAMESPACE }} --timeout=300s || \
+            kubectl wait --for=condition=failed job/$JOB_NAME -n ${{ env.NAMESPACE }} --timeout=10s
+
+            # Store job name for later steps
+            echo "JOB_NAME=$JOB_NAME" >> $GITHUB_ENV
           else
-            echo "❌ Job semgrep-scan not found in namespace ${{ env.NAMESPACE }}"
+            echo "❌ No Semgrep jobs found in namespace ${{ env.NAMESPACE }}"
             echo "📋 Available jobs in namespace:"
             kubectl get jobs -n ${{ env.NAMESPACE }} || echo "No jobs found"
             exit 1
@@ -199,12 +207,22 @@ jobs:
           kubectl get jobs -n ${{ env.NAMESPACE }}
           echo ""
           echo "📋 Semgrep Job Logs:"
-          kubectl logs job/semgrep-scan -n ${{ env.NAMESPACE }} || echo "No logs available yet"
+
+          # Use the job name from previous step or find it dynamically
+          if [ -n "${{ env.JOB_NAME }}" ]; then
+            JOB_NAME="${{ env.JOB_NAME }}"
+          else
+            JOB_NAME=$(kubectl get jobs -n ${{ env.NAMESPACE }} -l app=semgrep -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "semgrep-scan")
+          fi
+
+          echo "📋 Getting logs from job: $JOB_NAME"
+          kubectl logs job/$JOB_NAME -n ${{ env.NAMESPACE }} || echo "No logs available yet"
 
           if [ "${{ steps.parse.outputs.environment }}" = "dev" ]; then
             echo ""
             echo "📋 Minikube Access Info:"
             echo "Namespace: ${{ env.NAMESPACE }}"
+            echo "Job Name: $JOB_NAME"
             kubectl get svc -n ${{ env.NAMESPACE }} || echo "No services found"
           fi
           
@@ -213,26 +231,31 @@ jobs:
         if: github.event_name == 'issues'
         with:
           script: |
-            const comment = `## ✅ Semgrep Deployment Completed
+            const jobName = '${{ env.JOB_NAME }}' || 'semgrep-scan-once';
+            const comment = \`## ✅ Semgrep Deployment Completed
 
-            **Environment:** \`${{ steps.parse.outputs.environment }}\`
-            **Namespace:** \`${{ env.NAMESPACE }}\`
+            **Environment:** \\\`${{ steps.parse.outputs.environment }}\\\`
+            **Namespace:** \\\`${{ env.NAMESPACE }}\\\`
+            **Job Name:** \\\`\${jobName}\\\`
 
             ### 🔧 Monitoring Commands:
-            \`\`\`bash
+            \\\`\\\`\\\`bash
             # Check deployment status
             kubectl get jobs -n ${{ env.NAMESPACE }}
             kubectl get pods -n ${{ env.NAMESPACE }}
 
             # View logs
-            kubectl logs job/semgrep-scan -n ${{ env.NAMESPACE }}
+            kubectl logs job/\${jobName} -n ${{ env.NAMESPACE }}
+
+            # Health check
+            ./health-check.sh ${{ steps.parse.outputs.environment }}
 
             # Cleanup when done
             helm uninstall semgrep-scan -n ${{ env.NAMESPACE }}
-            \`\`\`
+            \\\`\\\`\\\`
 
             ---
-            *Deployment triggered by issue #${{ github.event.issue.number }}*`;
+            *Deployment triggered by issue #${{ github.event.issue.number }}*\`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
