@@ -162,21 +162,8 @@ jobs:
           echo "Rules Path: $RULES_PATH"
           echo ""
 
-          # Check if Minikube is running
-          echo "📋 Checking Minikube status..."
-          if ! minikube status > /dev/null 2>&1; then
-            echo "❌ Minikube is not running. Please start it first:"
-            echo "   minikube start"
-            exit 1
-          fi
-          echo "✅ Minikube is running (IP: \$(minikube ip))"
-
-          # Check if Helm is installed
-          if ! command -v helm &> /dev/null; then
-            echo "❌ Helm is not installed. Please install Helm first."
-            exit 1
-          fi
-          echo "✅ Helm is available (Version: \$(helm version --short))"
+          # Prerequisites assumed to be installed locally
+          echo "📋 Using local Minikube, Helm, and kubectl installations"
 
           # Set namespace
           NAMESPACE="semgrep-$ENV"
@@ -247,14 +234,6 @@ jobs:
           echo "Environment: $ENV"
           echo "Namespace: \$NAMESPACE"
           echo ""
-
-          # Check if job exists
-          if ! kubectl get job semgrep-scan -n \$NAMESPACE > /dev/null 2>&1; then
-            echo "❌ Semgrep job not found in namespace \$NAMESPACE"
-            echo "Available jobs:"
-            kubectl get jobs -n \$NAMESPACE
-            exit 1
-          fi
 
           # Wait for job to start
           echo "⏳ Waiting for job to start..."
@@ -449,10 +428,7 @@ jobs:
             After downloading and extracting the artifact:
 
             \`\`\`bash
-            # Make sure Minikube is running
-            minikube status
-
-            # Deploy Semgrep
+            # Deploy Semgrep (assumes Minikube, Helm, kubectl are ready)
             ./deploy-semgrep.sh
 
             # Check results
