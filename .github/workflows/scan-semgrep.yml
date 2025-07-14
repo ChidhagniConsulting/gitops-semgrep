@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, build-test]
     # DISABLED: Only run on manual trigger for testing
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.force_github_deploy == 'true'
+    if: success()
     env:
       ENV: ${{ github.event.inputs.environment || 'dev' }}
       NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}
