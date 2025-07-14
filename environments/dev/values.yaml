@@ -6,7 +6,7 @@ github:
   repository: ChidhagniConsulting/gitops-semgrep  # GitHub repo in org/repo format
 
 semgrep:
-  token: "<your-semgrep-token-here>"  # Replace with your actual Semgrep token for dev
+  token: "${SEMGREP_APP_TOKEN}"  # Semgrep token from environment variable (set during deployment)
   configPath: /repo/rules/frontend/   # Path to rules directory (change if needed)
   
 # Additional configuration options
