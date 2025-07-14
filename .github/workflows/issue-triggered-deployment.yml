@@ -232,30 +232,30 @@ jobs:
         with:
           script: |
             const jobName = '${{ env.JOB_NAME }}' || 'semgrep-scan-once';
-            const comment = \`## ✅ Semgrep Deployment Completed
+            const comment = `## ✅ Semgrep Deployment Completed
 
-            **Environment:** \\\`${{ steps.parse.outputs.environment }}\\\`
-            **Namespace:** \\\`${{ env.NAMESPACE }}\\\`
-            **Job Name:** \\\`\${jobName}\\\`
+            **Environment:** \`${{ steps.parse.outputs.environment }}\`
+            **Namespace:** \`${{ env.NAMESPACE }}\`
+            **Job Name:** \`${jobName}\`
 
             ### 🔧 Monitoring Commands:
-            \\\`\\\`\\\`bash
+            \`\`\`bash
             # Check deployment status
             kubectl get jobs -n ${{ env.NAMESPACE }}
             kubectl get pods -n ${{ env.NAMESPACE }}
 
             # View logs
-            kubectl logs job/\${jobName} -n ${{ env.NAMESPACE }}
+            kubectl logs job/${jobName} -n ${{ env.NAMESPACE }}
 
             # Health check
             ./health-check.sh ${{ steps.parse.outputs.environment }}
 
             # Cleanup when done
             helm uninstall semgrep-scan -n ${{ env.NAMESPACE }}
-            \\\`\\\`\\\`
+            \`\`\`
 
             ---
-            *Deployment triggered by issue #${{ github.event.issue.number }}*\`;
+            *Deployment triggered by issue #${{ github.event.issue.number }}*`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
