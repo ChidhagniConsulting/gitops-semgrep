@@ -18,18 +18,23 @@ jobs:
           echo '${{ github.event.issue.body }}' | head -c 500
           echo ""
           echo "=== CONDITION CHECKS ==="
-          echo "Title contains '[Deploy]': ${{ contains(github.event.issue.title, '[Deploy]') }}"
-          echo "Title contains 'Semgrep': ${{ contains(github.event.issue.title, 'Semgrep') }}"
-          echo "Title contains 'Minikube': ${{ contains(github.event.issue.title, 'Minikube') }}"
+          echo "Has 'semgrep' label: ${{ contains(github.event.issue.labels.*.name, 'semgrep') }}"
           echo "Has 'minikube' label: ${{ contains(github.event.issue.labels.*.name, 'minikube') }}"
+          echo "Has 'deployment' label: ${{ contains(github.event.issue.labels.*.name, 'deployment') }}"
           echo "Body contains 'Deploy Semgrep to Local Minikube': ${{ contains(github.event.issue.body, 'Deploy Semgrep to Local Minikube') }}"
+          echo "Body contains 'Environment': ${{ contains(github.event.issue.body, 'Environment') }}"
+          echo "Body contains 'What to Scan': ${{ contains(github.event.issue.body, 'What to Scan') }}"
+          echo "Body contains 'Deployment Options': ${{ contains(github.event.issue.body, 'Deployment Options') }}"
 
   generate-deployment:
     if: |
-      (contains(github.event.issue.title, '[Deploy]') && contains(github.event.issue.title, 'Semgrep')) ||
-      (contains(github.event.issue.title, '[Deploy]') && contains(github.event.issue.title, 'Minikube')) ||
+      contains(github.event.issue.labels.*.name, 'semgrep') ||
       contains(github.event.issue.labels.*.name, 'minikube') ||
-      contains(github.event.issue.body, 'Deploy Semgrep to Local Minikube')
+      contains(github.event.issue.labels.*.name, 'deployment') ||
+      contains(github.event.issue.body, 'Deploy Semgrep to Local Minikube') ||
+      contains(github.event.issue.body, 'Environment') ||
+      contains(github.event.issue.body, 'What to Scan') ||
+      contains(github.event.issue.body, 'Deployment Options')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
