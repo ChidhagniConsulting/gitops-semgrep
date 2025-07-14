@@ -168,23 +168,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-          
-      - name: Setup Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: 'latest'
-
-      - name: Verify Minikube connection
-        run: |
-          echo "� Verifying connection to existing Minikube cluster..."
-          kubectl config current-context
-          kubectl cluster-info
-          echo "✅ Connected to Minikube cluster"
 
       - name: Create namespace
         run: |
