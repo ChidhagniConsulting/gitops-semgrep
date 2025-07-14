@@ -172,8 +172,17 @@ jobs:
       # Wait for Semgrep job to become ready
       - name: Wait for Semgrep Job to be Ready
         run: |
-          kubectl wait --for=condition=complete job/semgrep-scan -n ${{ env.NAMESPACE }} --timeout=300s || \
-          kubectl wait --for=condition=failed job/semgrep-scan -n ${{ env.NAMESPACE }} --timeout=10s
+          echo "📋 Checking if job was created..."
+          if kubectl get job/semgrep-scan -n ${{ env.NAMESPACE }} >/dev/null 2>&1; then
+            echo "✅ Job found, waiting for completion..."
+            kubectl wait --for=condition=complete job/semgrep-scan -n ${{ env.NAMESPACE }} --timeout=300s || \
+            kubectl wait --for=condition=failed job/semgrep-scan -n ${{ env.NAMESPACE }} --timeout=10s
+          else
+            echo "❌ Job semgrep-scan not found in namespace ${{ env.NAMESPACE }}"
+            echo "📋 Available jobs in namespace:"
+            kubectl get jobs -n ${{ env.NAMESPACE }} || echo "No jobs found"
+            exit 1
+          fi
 
       # List pods for verification
       - name: List Semgrep Pods
