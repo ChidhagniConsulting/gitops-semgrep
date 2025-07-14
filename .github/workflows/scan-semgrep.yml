@@ -151,9 +151,10 @@ jobs:
 
   # Deploy to Minikube stage
   deploy-minikube:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [lint, build-test]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    # Run on push and workflow_dispatch, but not on PRs
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (needs.lint.result == 'success' && needs.build-test.result == 'success')
     env:
       ENV: ${{ github.event.inputs.environment || 'dev' }}
       NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}
@@ -171,7 +172,14 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: 'latest'
-          
+
+      - name: Install Minikube
+        run: |
+          echo "📦 Installing Minikube..."
+          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo install minikube-linux-amd64 /usr/local/bin/minikube
+          minikube version
+
       - name: Start Minikube
         run: |
           echo "🚀 Starting Minikube cluster..."
