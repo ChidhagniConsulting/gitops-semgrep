@@ -123,7 +123,30 @@ jobs:
       - name: Validate Kubernetes manifests
         run: |
           echo "Validating Kubernetes manifests..."
-          helm template ./k8s-jobs -f environments/dev/values.yaml | kubectl apply --dry-run=client -f -
+          # Generate manifests and validate YAML structure without connecting to cluster
+          helm template ./k8s-jobs -f environments/dev/values.yaml > /tmp/manifests.yaml
+
+          # Validate YAML syntax
+          python3 -c "
+          import yaml
+          import sys
+
+          try:
+              with open('/tmp/manifests.yaml', 'r') as f:
+                  docs = list(yaml.safe_load_all(f))
+              print(f'✅ Generated {len([d for d in docs if d])} valid Kubernetes manifests')
+
+              # Basic validation - check for required fields
+              for doc in docs:
+                  if doc and 'kind' in doc:
+                      if 'metadata' not in doc or 'name' not in doc['metadata']:
+                          print(f'❌ Missing required metadata.name in {doc.get(\"kind\", \"Unknown\")}')
+                          sys.exit(1)
+                      print(f'✅ {doc[\"kind\"]}: {doc[\"metadata\"][\"name\"]}')
+          except Exception as e:
+              print(f'❌ Manifest validation failed: {e}')
+              sys.exit(1)
+          "
           echo "✅ Kubernetes manifests valid"
 
   # Deploy to Minikube stage
