@@ -6,7 +6,7 @@ on:
 
 jobs:
   parse-and-deploy:
-    if: contains(github.event.issue.labels.*.name, 'deployment') || contains(github.event.issue.labels.*.name, 'minikube')
+    if: contains(github.event.issue.labels.*.name, 'deployment') || contains(github.event.issue.labels.*.name, 'minikube') || contains(github.event.issue.labels.*.name, 'semgrep')
     runs-on: arc-runner-set
     
     steps:
