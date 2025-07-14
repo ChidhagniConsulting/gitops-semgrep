@@ -147,12 +147,20 @@ jobs:
 
       - name: Generate Deployment Script
         run: |
-          cat > deploy-semgrep.sh << 'EOF'
+          ENV="${{ steps.parse.outputs.environment }}"
+          RULES_PATH="${{ steps.rules.outputs.rules_path }}"
+          RULES_DESC="${{ steps.rules.outputs.rules_description }}"
+
+          cat > deploy-semgrep.sh << EOF
           #!/bin/bash
           set -e
 
           echo "🚀 Deploying Semgrep to Local Minikube"
           echo "======================================="
+          echo "Environment: $ENV"
+          echo "Scan Target: $RULES_DESC"
+          echo "Rules Path: $RULES_PATH"
+          echo ""
 
           # Check if Minikube is running
           echo "📋 Checking Minikube status..."
@@ -161,28 +169,64 @@ jobs:
             echo "   minikube start"
             exit 1
           fi
-          echo "✅ Minikube is running"
+          echo "✅ Minikube is running (IP: \$(minikube ip))"
 
           # Check if Helm is installed
           if ! command -v helm &> /dev/null; then
             echo "❌ Helm is not installed. Please install Helm first."
             exit 1
           fi
-          echo "✅ Helm is available"
+          echo "✅ Helm is available (Version: \$(helm version --short))"
+
+          # Set namespace
+          NAMESPACE="semgrep-$ENV"
+          echo "📦 Using namespace: \$NAMESPACE"
+
+          # Create namespace if it doesn't exist
+          echo "📋 Creating namespace if not exists..."
+          kubectl get ns \$NAMESPACE || kubectl create ns \$NAMESPACE
 
           # Deploy Semgrep
+          echo ""
           echo "🚀 Deploying Semgrep job..."
-          helm upgrade --install semgrep-scan ./k8s-jobs \
-            --values ./custom-values.yaml \
-            --wait \
+          helm upgrade --install semgrep-scan ./k8s-jobs \\
+            --values ./custom-values.yaml \\
+            --namespace \$NAMESPACE \\
+            --wait \\
             --timeout=300s
 
           echo "✅ Deployment completed!"
 
           # Show status
+          echo ""
           echo "📊 Checking deployment status..."
-          kubectl get jobs -l app=semgrep
-          kubectl get pods -l app=semgrep
+          kubectl get jobs,pods -l app=semgrep -n \$NAMESPACE
+
+          # Wait for job to start
+          echo ""
+          echo "⏳ Waiting for job to start..."
+          kubectl wait --for=condition=ready pod -l app=semgrep -n \$NAMESPACE --timeout=60s || echo "Job may still be starting..."
+
+          # Show logs
+          echo ""
+          echo "📋 Showing initial logs..."
+          kubectl logs -n \$NAMESPACE job/semgrep-scan --tail=20 || echo "Logs not available yet"
+
+          echo ""
+          echo "🎉 Deployment Summary:"
+          echo "======================"
+          echo "Environment: $ENV"
+          echo "Namespace: \$NAMESPACE"
+          echo "Scan Target: $RULES_DESC"
+          echo ""
+          echo "📊 Monitoring Commands:"
+          echo "kubectl logs -f -n \$NAMESPACE job/semgrep-scan"
+          echo "kubectl get jobs,pods -n \$NAMESPACE -l app=semgrep"
+          echo "kubectl describe job -n \$NAMESPACE semgrep-scan"
+          echo ""
+          echo "🧹 Cleanup Commands:"
+          echo "helm uninstall semgrep-scan -n \$NAMESPACE"
+          echo "kubectl delete namespace \$NAMESPACE"
 
           EOF
 
@@ -191,24 +235,46 @@ jobs:
       - name: Generate Monitoring Script
         if: steps.parse.outputs.show_logs == 'true'
         run: |
-          cat > monitor-semgrep.sh << 'EOF'
+          ENV="${{ steps.parse.outputs.environment }}"
+
+          cat > monitor-semgrep.sh << EOF
           #!/bin/bash
 
           echo "📊 Monitoring Semgrep Job"
           echo "========================"
 
+          NAMESPACE="semgrep-$ENV"
+          echo "Environment: $ENV"
+          echo "Namespace: \$NAMESPACE"
+          echo ""
+
+          # Check if job exists
+          if ! kubectl get job semgrep-scan -n \$NAMESPACE > /dev/null 2>&1; then
+            echo "❌ Semgrep job not found in namespace \$NAMESPACE"
+            echo "Available jobs:"
+            kubectl get jobs -n \$NAMESPACE
+            exit 1
+          fi
+
           # Wait for job to start
           echo "⏳ Waiting for job to start..."
-          kubectl wait --for=condition=ready pod -l app=semgrep --timeout=60s
+          kubectl wait --for=condition=ready pod -l app=semgrep -n \$NAMESPACE --timeout=60s || echo "Job may still be starting..."
+
+          # Show current status
+          echo ""
+          echo "📊 Current Status:"
+          kubectl get jobs,pods -l app=semgrep -n \$NAMESPACE
 
           # Follow logs
-          echo "📋 Following job logs..."
-          kubectl logs -f job/semgrep-scan
+          echo ""
+          echo "📋 Following job logs (Press Ctrl+C to stop)..."
+          kubectl logs -f -n \$NAMESPACE job/semgrep-scan
 
           # Show final status
+          echo ""
           echo "📊 Final job status:"
-          kubectl get jobs -l app=semgrep
-          kubectl describe job semgrep-scan
+          kubectl get jobs -l app=semgrep -n \$NAMESPACE
+          kubectl describe job -n \$NAMESPACE semgrep-scan
 
           EOF
 
@@ -217,18 +283,54 @@ jobs:
       - name: Generate Cleanup Script
         if: steps.parse.outputs.include_cleanup == 'true'
         run: |
-          cat > cleanup-semgrep.sh << 'EOF'
+          ENV="${{ steps.parse.outputs.environment }}"
+
+          cat > cleanup-semgrep.sh << EOF
           #!/bin/bash
 
           echo "🧹 Cleaning up Semgrep deployment"
           echo "================================="
 
+          NAMESPACE="semgrep-$ENV"
+          echo "Environment: $ENV"
+          echo "Namespace: \$NAMESPACE"
+          echo ""
+
+          # Check if namespace exists
+          if ! kubectl get namespace \$NAMESPACE > /dev/null 2>&1; then
+            echo "❌ Namespace \$NAMESPACE not found"
+            echo "Available namespaces:"
+            kubectl get namespaces | grep semgrep || echo "No semgrep namespaces found"
+            exit 1
+          fi
+
+          # Show what will be deleted
+          echo "📋 Resources to be deleted:"
+          kubectl get all -n \$NAMESPACE -l app=semgrep || echo "No resources found"
+          echo ""
+
+          # Ask for confirmation
+          read -p "Are you sure you want to delete all Semgrep resources in namespace \$NAMESPACE? (y/N): " confirm
+          if [[ \$confirm != [yY] && \$confirm != [yY][eE][sS] ]]; then
+            echo "❌ Cleanup cancelled"
+            exit 0
+          fi
+
           # Delete the Helm release
-          helm uninstall semgrep-scan
+          echo "🗑️  Uninstalling Helm release..."
+          helm uninstall semgrep-scan -n \$NAMESPACE || echo "Helm release not found"
 
           # Clean up any remaining resources
-          kubectl delete jobs -l app=semgrep
-          kubectl delete pods -l app=semgrep
+          echo "🗑️  Cleaning up remaining resources..."
+          kubectl delete jobs -l app=semgrep -n \$NAMESPACE || echo "No jobs to delete"
+          kubectl delete pods -l app=semgrep -n \$NAMESPACE || echo "No pods to delete"
+
+          # Optionally delete namespace
+          read -p "Do you want to delete the namespace \$NAMESPACE as well? (y/N): " delete_ns
+          if [[ \$delete_ns == [yY] || \$delete_ns == [yY][eE][sS] ]]; then
+            echo "🗑️  Deleting namespace..."
+            kubectl delete namespace \$NAMESPACE
+          fi
 
           echo "✅ Cleanup completed!"
 
