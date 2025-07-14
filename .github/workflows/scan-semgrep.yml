@@ -152,7 +152,7 @@ jobs:
   # Deploy to Minikube stage (GitHub Actions - for CI/CD testing)
   # For local development, use the deploy-local.sh or deploy-local.ps1 scripts instead
   deploy-minikube:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [lint, build-test]
     # Always run after successful lint and build-test
     if: success()
