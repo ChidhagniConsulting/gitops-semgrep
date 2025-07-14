@@ -1,2 +1,8 @@
 blank_issues_enabled: false
-contact_links: [] 
+contact_links:
+  - name: "Semgrep Documentation"
+    url: "https://semgrep.dev/docs/"
+    about: "Official Semgrep documentation for rule writing and configuration"
+  - name: "Semgrep Rule Registry"
+    url: "https://semgrep.dev/explore"
+    about: "Browse and search existing Semgrep rules"

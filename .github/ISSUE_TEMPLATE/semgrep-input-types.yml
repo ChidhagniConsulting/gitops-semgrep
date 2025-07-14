@@ -1,0 +1,198 @@
+name: "Semgrep Input Types Required"
+description: "Request input types for Semgrep rule configuration"
+title: "[Semgrep Input] "
+labels: ["semgrep", "input-required", "configuration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Semgrep Input Types Required
+        
+        This template is used when Semgrep needs specific input types or configuration parameters to proceed with scanning or rule execution.
+        
+        Please provide the required information below to help configure Semgrep properly.
+
+  - type: dropdown
+    id: input_category
+    attributes:
+      label: "Input Category"
+      description: "What type of input does Semgrep need?"
+      options:
+        - "Rule Configuration"
+        - "Target Files/Directories"
+        - "Language Specification"
+        - "Severity Levels"
+        - "Custom Patterns"
+        - "Environment Variables"
+        - "Output Format"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target_environment
+    attributes:
+      label: "Target Environment"
+      description: "Which environment is this for?"
+      options:
+        - "dev"
+        - "beta"
+        - "prod"
+        - "all"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: languages
+    attributes:
+      label: "Programming Languages"
+      description: "Which languages should Semgrep scan? (Select all that apply)"
+      options:
+        - label: "Java"
+        - label: "JavaScript/TypeScript"
+        - label: "Python"
+        - label: "Go"
+        - label: "C/C++"
+        - label: "C#"
+        - label: "PHP"
+        - label: "Ruby"
+        - label: "Kotlin"
+        - label: "Swift"
+        - label: "Other (specify in details)"
+
+  - type: dropdown
+    id: severity_level
+    attributes:
+      label: "Minimum Severity Level"
+      description: "What's the minimum severity level for findings?"
+      options:
+        - "INFO"
+        - "WARNING"
+        - "ERROR"
+        - "ALL"
+    validations:
+      required: true
+
+  - type: input
+    id: rule_sets
+    attributes:
+      label: "Rule Sets"
+      description: "Specify which rule sets to use (e.g., backend, frontend, shared, or custom paths)"
+      placeholder: "backend,frontend,shared"
+    validations:
+      required: true
+
+  - type: textarea
+    id: target_paths
+    attributes:
+      label: "Target Paths"
+      description: "Specify the files or directories to scan (one per line)"
+      placeholder: |
+        src/main/java/
+        src/test/java/
+        frontend/src/
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: exclude_paths
+    attributes:
+      label: "Exclude Paths"
+      description: "Specify paths to exclude from scanning (one per line)"
+      placeholder: |
+        node_modules/
+        target/
+        build/
+        .git/
+      render: text
+    validations:
+      required: false
+
+  - type: dropdown
+    id: output_format
+    attributes:
+      label: "Output Format"
+      description: "Preferred output format for results"
+      options:
+        - "json"
+        - "sarif"
+        - "text"
+        - "gitlab-sast"
+        - "junit-xml"
+        - "emacs"
+        - "vim"
+    validations:
+      required: true
+
+  - type: textarea
+    id: custom_patterns
+    attributes:
+      label: "Custom Patterns"
+      description: "Any custom patterns or rules to include (YAML format)"
+      placeholder: |
+        rules:
+          - id: custom-rule
+            message: Custom security check
+            languages: [java]
+            patterns:
+              - pattern: dangerous_function($X)
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment_variables
+    attributes:
+      label: "Environment Variables"
+      description: "Any environment variables needed for the scan"
+      placeholder: |
+        SEMGREP_APP_TOKEN=your_token_here
+        SEMGREP_BASELINE_REF=main
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: timeout
+    attributes:
+      label: "Timeout (seconds)"
+      description: "Maximum time to allow for the scan"
+      placeholder: "300"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scan_options
+    attributes:
+      label: "Scan Options"
+      description: "Additional scan options (select all that apply)"
+      options:
+        - label: "Enable autofix suggestions"
+        - label: "Include test files"
+        - label: "Verbose output"
+        - label: "Disable default rules"
+        - label: "Enable experimental rules"
+        - label: "Skip git ignored files"
+
+  - type: textarea
+    id: additional_details
+    attributes:
+      label: "Additional Details"
+      description: "Any other information or context needed for the Semgrep configuration"
+      placeholder: "Provide any additional context, specific requirements, or issues encountered..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: "Confirmation"
+      description: "Please confirm the following:"
+      options:
+        - label: "I have reviewed the existing Semgrep rules in the repository"
+          required: true
+        - label: "I understand this will trigger a Semgrep scan with the specified configuration"
+          required: true
+        - label: "I have the necessary permissions to run Semgrep in the target environment"
+          required: true
