@@ -41,12 +41,12 @@ jobs:
 
 
 
-      - name: Check Minikube connectivity
-        run: |
-          echo "=== Checking Minikube connectivity ==="
-          kubectl cluster-info
-          kubectl get nodes
-          echo "✅ Minikube is accessible"
+      # - name: Check Minikube connectivity
+      #   run: |
+      #     echo "=== Checking Minikube connectivity ==="
+      #     kubectl cluster-info
+      #     kubectl get nodes
+      #     echo "✅ Minikube is accessible"
 
       - name: Set deployment environment
         run: |
