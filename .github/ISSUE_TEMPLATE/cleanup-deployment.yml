@@ -1,0 +1,62 @@
+name: 🧹 Cleanup Semgrep Deployments
+description: Clean up Semgrep deployments from local Minikube cluster
+title: "[CLEANUP] Cleanup Semgrep Deployments"
+labels: ["cleanup", "semgrep", "maintenance"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🧹 Cleanup Semgrep Deployments
+        
+        This will trigger cleanup of Semgrep deployments from your local Minikube cluster.
+
+  - type: checkboxes
+    id: cleanup_options
+    attributes:
+      label: Cleanup Options
+      description: Select what to cleanup
+      options:
+        - label: Remove all Semgrep Helm releases
+          required: false
+        - label: Delete all Semgrep jobs
+          required: false
+        - label: Delete all Semgrep pods
+          required: false
+        - label: Clean up failed deployments only
+          required: false
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Target Environment (Optional)
+      description: Cleanup specific environment or all
+      options:
+        - all
+        - dev
+        - beta
+        - prod
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Cleanup Reason
+      description: Why are you cleaning up these deployments?
+      placeholder: "Cleaning up after testing, resolving deployment conflicts, etc."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      description: Confirm you want to proceed with cleanup
+      options:
+        - label: I understand this will remove Semgrep deployments
+          required: true
+        - label: I have backed up any important data/logs
+          required: false
