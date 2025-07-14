@@ -6,10 +6,22 @@ on:
 
 jobs:
   parse-and-deploy:
-    if: contains(github.event.issue.labels.*.name, 'deployment') || contains(github.event.issue.labels.*.name, 'minikube') || contains(github.event.issue.labels.*.name, 'semgrep')
+    # Run on ARC runners and check labels within the job
+    if: contains(github.event.issue.labels.*.name, 'deployment') || contains(github.event.issue.labels.*.name, 'minikube') || contains(github.event.issue.labels.*.name, 'semgrep') || contains(github.event.issue.title, 'Deploy') || contains(github.event.issue.title, 'Minikube')
     runs-on: arc-runner-set
     
     steps:
+      - name: Debug issue information
+        run: |
+          echo "🔍 Issue Debug Information:"
+          echo "Issue title: ${{ github.event.issue.title }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Issue labels: ${{ toJson(github.event.issue.labels.*.name) }}"
+          echo "Issue action: ${{ github.event.action }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Runner: ${{ runner.name }}"
+          echo "✅ ARC runner is working!"
+
       - name: Checkout code
         uses: actions/checkout@v4
         
