@@ -5,11 +5,31 @@ on:
     types: [opened]
 
 jobs:
+  debug-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug Issue Information
+        run: |
+          echo "=== ISSUE DEBUG INFO ==="
+          echo "Issue Title: '${{ github.event.issue.title }}'"
+          echo "Issue Number: ${{ github.event.issue.number }}"
+          echo "Issue Labels: ${{ toJson(github.event.issue.labels) }}"
+          echo "Issue Body (first 500 chars):"
+          echo '${{ github.event.issue.body }}' | head -c 500
+          echo ""
+          echo "=== CONDITION CHECKS ==="
+          echo "Title contains '[Deploy]': ${{ contains(github.event.issue.title, '[Deploy]') }}"
+          echo "Title contains 'Semgrep': ${{ contains(github.event.issue.title, 'Semgrep') }}"
+          echo "Title contains 'Minikube': ${{ contains(github.event.issue.title, 'Minikube') }}"
+          echo "Has 'minikube' label: ${{ contains(github.event.issue.labels.*.name, 'minikube') }}"
+          echo "Body contains 'Deploy Semgrep to Local Minikube': ${{ contains(github.event.issue.body, 'Deploy Semgrep to Local Minikube') }}"
+
   generate-deployment:
     if: |
-      contains(github.event.issue.title, '[Deploy]') &&
-      contains(github.event.issue.title, 'Semgrep') &&
-      contains(github.event.issue.labels.*.name, 'minikube')
+      (contains(github.event.issue.title, '[Deploy]') && contains(github.event.issue.title, 'Semgrep')) ||
+      (contains(github.event.issue.title, '[Deploy]') && contains(github.event.issue.title, 'Minikube')) ||
+      contains(github.event.issue.labels.*.name, 'minikube') ||
+      contains(github.event.issue.body, 'Deploy Semgrep to Local Minikube')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
