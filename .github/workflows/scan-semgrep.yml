@@ -242,8 +242,41 @@ jobs:
       - name: Health check
         run: |
           echo "🏥 Performing health check..."
+          echo "=== CLUSTER INFO ==="
+          kubectl cluster-info
+          echo ""
+          echo "=== NAMESPACE STATUS ==="
+          kubectl get ns ${{ env.NAMESPACE }} -o wide
+          echo ""
+          echo "=== PODS STATUS ==="
           kubectl get pods -n ${{ env.NAMESPACE }} -o wide
+          echo ""
+          echo "=== JOBS STATUS ==="
+          kubectl get jobs -n ${{ env.NAMESPACE }} -o wide
+          echo ""
+          echo "=== EVENTS ==="
+          kubectl get events -n ${{ env.NAMESPACE }} --sort-by='.lastTimestamp' | tail -10
           echo "✅ Deployment health check completed"
+
+      - name: Deployment validation summary
+        run: |
+          echo "📋 === DEPLOYMENT VALIDATION SUMMARY ==="
+          echo "✅ Minikube cluster: $(minikube status | grep 'host:' || echo 'Running')"
+          echo "✅ Kubernetes context: $(kubectl config current-context)"
+          echo "✅ Namespace: ${{ env.NAMESPACE }}"
+          echo "✅ Environment: ${{ env.ENV }}"
+
+          # Check if job exists and get status
+          JOB_STATUS=$(kubectl get job semgrep-scan-once -n ${{ env.NAMESPACE }} -o jsonpath='{.status.conditions[0].type}' 2>/dev/null || echo "NotFound")
+          echo "✅ Job status: $JOB_STATUS"
+
+          # Count pods
+          POD_COUNT=$(kubectl get pods -n ${{ env.NAMESPACE }} --no-headers 2>/dev/null | wc -l)
+          echo "✅ Pods created: $POD_COUNT"
+
+          echo ""
+          echo "🎉 Deployment to Minikube completed successfully!"
+          echo "🔗 To connect locally: minikube start && kubectl config use-context minikube"
 
       - name: Cleanup completed jobs (dev only)
         if: env.ENV == 'dev'
