@@ -92,136 +92,135 @@ jobs:
           echo "✅ All required files present"
 
   # Build and test stage
-build-test:
-  runs-on: ubuntu-latest
-  needs: lint
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+  build-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+          
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+          
+      - name: Validate values files
+        run: |
+          echo "Validating values files..."
+          # Only validate dev environment values file for now
+          # staging/prod have token placeholders that need secrets
+          if [ -f "environments/dev/values.yaml" ]; then
+            echo "Validating environments/dev/values.yaml"
+            helm template test ./k8s-jobs -f "environments/dev/values.yaml" --dry-run > /dev/null || exit 1
+            echo "✅ dev values file valid"
+          fi
+          
+      - name: Validate Kubernetes manifests
+        run: |
+          echo "Validating Kubernetes manifests..."
+          helm template ./k8s-jobs -f environments/dev/values.yaml | kubectl apply --dry-run=client -f -
+          echo "✅ Kubernetes manifests valid"
 
-    - name: Setup kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
+  # Deploy to Minikube stage
+  deploy-minikube:
+    runs-on: self-hosted
+    needs: [lint, build-test]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    env:
+      ENV: ${{ github.event.inputs.environment || 'dev' }}
+      NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+          
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+          
+      - name: Start Minikube
+        run: |
+          echo "🚀 Starting Minikube cluster..."
+          minikube start --cpus=4 --memory=8192 --driver=docker || echo "Minikube already running"
+          minikube status
+          
+      - name: Configure kubectl context
+        run: |
+          kubectl config use-context minikube
+          kubectl cluster-info
+          
+      - name: Create namespace
+        run: |
+          echo "📦 Creating namespace: ${{ env.NAMESPACE }}"
+          kubectl get ns ${{ env.NAMESPACE }} || kubectl create ns ${{ env.NAMESPACE }}
+          
+      - name: Set Semgrep Token
+        id: set-token
+        run: |
+          if [ "${{ env.ENV }}" == "dev" ]; then
+            echo "Using dev token from values.yaml"
+            echo "token_override=" >> $GITHUB_OUTPUT
+          elif [ "${{ env.ENV }}" == "staging" ]; then
+            echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_STAGING }}" >> $GITHUB_OUTPUT
+          elif [ "${{ env.ENV }}" == "prod" ]; then
+            echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_PROD }}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Deploy to Minikube
+        run: |
+          echo "🚀 Deploying to Minikube (${{ env.ENV }} environment)..."
+          helm upgrade --install semgrep-job ./k8s-jobs \
+            -f environments/${{ env.ENV }}/values.yaml \
+            ${{ steps.set-token.outputs.token_override }} \
+            --set environment=${{ env.ENV }} \
+            --set github.repository=${{ github.repository }} \
+            -n ${{ env.NAMESPACE }} \
+            --wait --timeout=10m
+            
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+          kubectl get all -n ${{ env.NAMESPACE }}
+          kubectl get jobs -n ${{ env.NAMESPACE }}
+          
+      - name: Wait for Job Completion
+        run: |
+          echo "⏳ Waiting for Semgrep job to complete..."
+          kubectl wait --for=condition=complete job/semgrep-scan-once \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=600s || echo "Job may still be running"
+            
+      - name: View deployment logs
+        run: |
+          echo "📋 === DEPLOYMENT STATUS ==="
+          kubectl get jobs -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "📋 === SEMGREP LOGS ==="
+          kubectl logs job/semgrep-scan-once -n ${{ env.NAMESPACE }} --all-containers=true || echo "No logs available yet"
+          
+      - name: Health check
+        run: |
+          echo "🏥 Performing health check..."
+          kubectl get pods -n ${{ env.NAMESPACE }} -o wide
+          echo "✅ Deployment health check completed"
 
-    - name: Setup Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: 'latest'
-
-    - name: Validate values files
-      run: |
-        echo "🔍 Validating Helm values file..."
-        if [ -f "environments/dev/values.yaml" ]; then
-          echo "✔ Validating environments/dev/values.yaml"
-          helm template test ./k8s-jobs -f "environments/dev/values.yaml" --dry-run > /dev/null || exit 1
-          echo "✅ dev values file is valid"
-        fi
-
-    - name: Skip kube validation in CI
-      run: |
-        echo "🔍 Skipping Kubernetes API server validation (dry-run)..."
-        helm template ./k8s-jobs -f environments/dev/values.yaml > /dev/null || exit 1
-        echo "✅ Kubernetes manifest structure is valid (dry run)"
-
-# Deploy to Minikube stage
-deploy-minikube:
-  runs-on: self-hosted
-  needs: [lint, build-test]
-  if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-  env:
-    ENV: ${{ github.event.inputs.environment || 'dev' }}
-    NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}
-
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup kubectl
-      uses: azure/setup-kubectl@v3
-      with:
-        version: 'latest'
-
-    - name: Setup Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: 'latest'
-
-    - name: Ensure Minikube is running
-      run: |
-        echo "🚀 Ensuring Minikube is running..."
-        minikube status || minikube start --cpus=4 --memory=8192 --driver=docker
-        minikube status
-
-    - name: Configure kubectl context
-      run: |
-        kubectl config use-context minikube
-        kubectl cluster-info
-
-    - name: Create namespace
-      run: |
-        echo "📦 Creating namespace: ${{ env.NAMESPACE }}"
-        kubectl get ns ${{ env.NAMESPACE }} || kubectl create ns ${{ env.NAMESPACE }}
-
-    - name: Set Semgrep Token
-      id: set-token
-      run: |
-        if [ "${{ env.ENV }}" == "dev" ]; then
-          echo "Using dev token from values.yaml"
-          echo "token_override=" >> $GITHUB_OUTPUT
-        elif [ "${{ env.ENV }}" == "staging" ]; then
-          echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_STAGING }}" >> $GITHUB_OUTPUT
-        elif [ "${{ env.ENV }}" == "prod" ]; then
-          echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_PROD }}" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Debug token output
-      run: echo "🔐 Token override: '${{ steps.set-token.outputs.token_override }}'"
-
-    - name: Deploy to Minikube
-      run: |
-        echo "🚀 Deploying to Minikube (${{ env.ENV }} environment)..."
-        helm upgrade --install semgrep-job ./k8s-jobs \
-          -f environments/${{ env.ENV }}/values.yaml \
-          ${{ steps.set-token.outputs.token_override }} \
-          --set environment=${{ env.ENV }} \
-          --set github.repository=${{ github.repository }} \
-          -n ${{ env.NAMESPACE }} \
-          --wait --timeout=10m
-
-    - name: Verify deployment
-      run: |
-        echo "🔍 Verifying deployment..."
-        kubectl get all -n ${{ env.NAMESPACE }}
-        kubectl get jobs -n ${{ env.NAMESPACE }}
-
-    - name: Wait for Job Completion
-      run: |
-        echo "⏳ Waiting for Semgrep job to complete..."
-        kubectl wait --for=condition=complete job/semgrep-scan-once \
-          -n ${{ env.NAMESPACE }} \
-          --timeout=600s || echo "⚠️ Job may still be running"
-
-    - name: View deployment logs
-      run: |
-        echo "📋 === DEPLOYMENT STATUS ==="
-        kubectl get jobs -n ${{ env.NAMESPACE }}
-        echo ""
-        echo "📋 === SEMGREP LOGS ==="
-        kubectl logs job/semgrep-scan-once -n ${{ env.NAMESPACE }} --all-containers=true || echo "⚠️ No logs available yet"
-
-    - name: Health check
-      run: |
-        echo "🏥 Performing health check..."
-        kubectl get pods -n ${{ env.NAMESPACE }} -o wide
-        echo "✅ Deployment health check completed"
-
-    - name: Cleanup completed jobs (dev only)
-      if: env.ENV == 'dev'
-      run: |
-        echo "🧹 Cleaning up completed jobs in dev environment..."
-        kubectl delete job semgrep-scan-once -n ${{ env.NAMESPACE }} --ignore-not-found=true || true
-        echo "✅ Cleanup completed"
+      - name: Cleanup completed jobs (dev only)
+        if: env.ENV == 'dev'
+        run: |
+          echo "🧹 Cleaning up completed jobs in dev environment..."
+          kubectl delete job semgrep-scan-once -n ${{ env.NAMESPACE }} --ignore-not-found=true || true
+          echo "✅ Cleanup completed"
 
 
   # Notification stage
