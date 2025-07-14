@@ -43,21 +43,37 @@ jobs:
       - name: Parse Issue Form Data
         id: parse
         run: |
-          # Extract environment
-          ENV=$(echo '${{ github.event.issue.body }}' | grep -A 1 "Environment" | grep -E "(dev|beta|prod)" | head -1 || echo "dev")
+          echo "=== PARSING ISSUE BODY ==="
+          echo "Issue body:"
+          echo '${{ github.event.issue.body }}'
+          echo "=========================="
+
+          # Extract environment with better logic
+          ENV=$(echo '${{ github.event.issue.body }}' | grep -i -A 3 "environment" | grep -E "(dev|beta|prod)" | head -1 | tr -d '[:space:]' || echo "")
+          if [ -z "$ENV" ]; then
+            # Fallback: look for environment anywhere in the body
+            ENV=$(echo '${{ github.event.issue.body }}' | grep -E "(dev|beta|prod)" | head -1 | grep -oE "(dev|beta|prod)" || echo "dev")
+          fi
+          echo "Extracted environment: '$ENV'"
           echo "environment=$ENV" >> $GITHUB_OUTPUT
 
           # Extract scan target
-          SCAN_TARGET=$(echo '${{ github.event.issue.body }}' | grep -A 1 "What to Scan" | tail -1 | sed 's/^[[:space:]]*//')
+          SCAN_TARGET=$(echo '${{ github.event.issue.body }}' | grep -i -A 3 "what to scan" | tail -1 | sed 's/^[[:space:]]*//' || echo "All rules")
+          if [ -z "$SCAN_TARGET" ] || [ "$SCAN_TARGET" = "_No response_" ]; then
+            SCAN_TARGET="All rules (Frontend + Backend + Shared)"
+          fi
+          echo "Extracted scan target: '$SCAN_TARGET'"
           echo "scan_target=$SCAN_TARGET" >> $GITHUB_OUTPUT
 
           # Extract Semgrep token
-          TOKEN=$(echo '${{ github.event.issue.body }}' | grep -A 1 "Semgrep Token" | tail -1 | sed 's/^[[:space:]]*//')
-          if [ "$TOKEN" != "_No response_" ] && [ "$TOKEN" != "" ]; then
+          TOKEN=$(echo '${{ github.event.issue.body }}' | grep -i -A 3 "semgrep token" | tail -1 | sed 's/^[[:space:]]*//' || echo "")
+          if [ "$TOKEN" != "_No response_" ] && [ -n "$TOKEN" ] && [ "$TOKEN" != "semgrep_dummy_token_1234567890abcdef1234567890abcdef" ]; then
             echo "has_token=true" >> $GITHUB_OUTPUT
             echo "token=$TOKEN" >> $GITHUB_OUTPUT
+            echo "Token found: ***provided***"
           else
             echo "has_token=false" >> $GITHUB_OUTPUT
+            echo "No valid token found, using default"
           fi
 
           # Check deployment options
@@ -98,6 +114,24 @@ jobs:
       - name: Create Custom Values File
         run: |
           ENV="${{ steps.parse.outputs.environment }}"
+          echo "Using environment: '$ENV'"
+
+          # Validate environment
+          if [ -z "$ENV" ] || [ "$ENV" = "" ]; then
+            echo "Environment is empty, defaulting to 'dev'"
+            ENV="dev"
+          fi
+
+          # Check if environment file exists
+          if [ ! -f "./environments/$ENV/values.yaml" ]; then
+            echo "Environment file not found: ./environments/$ENV/values.yaml"
+            echo "Available environments:"
+            ls -la ./environments/
+            echo "Defaulting to dev environment"
+            ENV="dev"
+          fi
+
+          echo "Final environment: '$ENV'"
           cp "./environments/$ENV/values.yaml" "./custom-values.yaml"
 
           # Update rules path
