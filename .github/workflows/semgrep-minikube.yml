@@ -377,7 +377,21 @@ jobs:
             kubectl logs -f job/semgrep-scan
             \`\`\`
 
-            ${ steps.parse.outputs.include_cleanup === 'true' ? '### 🧹 Cleanup\n\nWhen you\'re done, run:\n```bash\n./cleanup-semgrep.sh\n```\n' : '' }
+            `;
+
+            // Add cleanup section if requested
+            const includeCleanup = '${{ steps.parse.outputs.include_cleanup }}' === 'true';
+            const cleanupSection = includeCleanup ? `
+
+            ### 🧹 Cleanup
+
+            When you're done, run:
+            \`\`\`bash
+            ./cleanup-semgrep.sh
+            \`\`\`
+            ` : '';
+
+            const finalDeploymentInfo = deploymentInfo + cleanupSection + `
 
             ### 📊 Monitoring
 
@@ -395,5 +409,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: deploymentInfo
+              body: finalDeploymentInfo
             })
