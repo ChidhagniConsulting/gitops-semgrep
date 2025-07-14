@@ -7,7 +7,7 @@ on:
 jobs:
   parse-and-deploy:
     # Run on ARC runners and check labels within the job
-    if: contains(github.event.issue.labels.*.name, 'deployment') || contains(github.event.issue.labels.*.name, 'minikube') || contains(github.event.issue.labels.*.name, 'semgrep') || contains(github.event.issue.title, 'Deploy') || contains(github.event.issue.title, 'Minikube')
+    if: contains(github.event.issue.labels.*.name, 'deployment') || contains(github.event.issue.labels.*.name, 'semgrep') || contains(github.event.issue.title, 'Deploy')
     runs-on: arc-runner-set
     
     steps:
@@ -62,7 +62,7 @@ jobs:
             - Scan Target: \`${{ steps.parse.outputs.scan_target }}\`
             - Semgrep Token: ${{ steps.parse.outputs.semgrep_token != '' && '✅ Provided' || '❌ Not provided (basic scan)' }}
             
-            **Status:** 🔄 Deploying to local Minikube cluster...
+            **Status:** 🔄 Deploying...
             
             You can monitor the deployment progress in the [Actions tab](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).`;
             
@@ -81,14 +81,6 @@ jobs:
           
 
           
-      - name: Check Minikube connectivity
-        run: |
-          echo "=== Checking Minikube connectivity ==="
-          kubectl cluster-info
-          kubectl get nodes
-          echo "✅ Minikube is accessible"
-          
-
       - name: Configure scan target
         id: config
         run: |
