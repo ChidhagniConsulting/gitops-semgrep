@@ -1,491 +1,89 @@
-name: Deploy Semgrep to Local Minikube
+name: Deploy Semgrep to Minikube
 
 on:
-  issues:
-    types: [opened]
+  push:
+    branches:
+      - dev
+      - test-workflow
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Choose environment (dev/beta/prod)'
+        required: true
+        default: 'dev'
 
 jobs:
-  debug-issue:
-    runs-on: ubuntu-latest
+  deploy-semgrep:
+    runs-on: self-hosted
+
+    env:
+      ENV: ${{ github.event.inputs.environment || 'dev' }}
+
     steps:
-      - name: Debug Issue Information
-        run: |
-          echo "=== ISSUE DEBUG INFO ==="
-          echo "Issue Title: '${{ github.event.issue.title }}'"
-          echo "Issue Number: ${{ github.event.issue.number }}"
-          echo "Issue Labels: ${{ toJson(github.event.issue.labels) }}"
-          echo "Issue Body (first 500 chars):"
-          echo '${{ github.event.issue.body }}' | head -c 500
-          echo ""
-          echo "=== CONDITION CHECKS ==="
-          echo "Has 'semgrep' label: ${{ contains(github.event.issue.labels.*.name, 'semgrep') }}"
-          echo "Has 'minikube' label: ${{ contains(github.event.issue.labels.*.name, 'minikube') }}"
-          echo "Has 'deployment' label: ${{ contains(github.event.issue.labels.*.name, 'deployment') }}"
-          echo "Body contains 'Deploy Semgrep to Local Minikube': ${{ contains(github.event.issue.body, 'Deploy Semgrep to Local Minikube') }}"
-          echo "Body contains 'Environment': ${{ contains(github.event.issue.body, 'Environment') }}"
-          echo "Body contains 'What to Scan': ${{ contains(github.event.issue.body, 'What to Scan') }}"
-          echo "Body contains 'Deployment Options': ${{ contains(github.event.issue.body, 'Deployment Options') }}"
-
-  generate-deployment:
-    if: |
-      contains(github.event.issue.labels.*.name, 'semgrep') ||
-      contains(github.event.issue.labels.*.name, 'minikube') ||
-      contains(github.event.issue.labels.*.name, 'deployment') ||
-      contains(github.event.issue.body, 'Deploy Semgrep to Local Minikube') ||
-      contains(github.event.issue.body, 'Environment') ||
-      contains(github.event.issue.body, 'What to Scan') ||
-      contains(github.event.issue.body, 'Deployment Options')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Parse Issue Form Data
-        id: parse
-        run: |
-          echo "=== PARSING ISSUE BODY ==="
-          echo "Issue body:"
-          echo '${{ github.event.issue.body }}'
-          echo "=========================="
-
-          # Extract environment with better logic
-          ENV=$(echo '${{ github.event.issue.body }}' | grep -i -A 3 "environment" | grep -E "(dev|beta|prod)" | head -1 | tr -d '[:space:]' || echo "")
-          if [ -z "$ENV" ]; then
-            # Fallback: look for environment anywhere in the body
-            ENV=$(echo '${{ github.event.issue.body }}' | grep -E "(dev|beta|prod)" | head -1 | grep -oE "(dev|beta|prod)" || echo "dev")
-          fi
-          echo "Extracted environment: '$ENV'"
-          echo "environment=$ENV" >> $GITHUB_OUTPUT
-
-          # Extract scan target
-          SCAN_TARGET=$(echo '${{ github.event.issue.body }}' | grep -i -A 3 "what to scan" | tail -1 | sed 's/^[[:space:]]*//' || echo "All rules")
-          if [ -z "$SCAN_TARGET" ] || [ "$SCAN_TARGET" = "_No response_" ]; then
-            SCAN_TARGET="All rules (Frontend + Backend + Shared)"
-          fi
-          echo "Extracted scan target: '$SCAN_TARGET'"
-          echo "scan_target=$SCAN_TARGET" >> $GITHUB_OUTPUT
-
-          # Extract Semgrep token
-          TOKEN=$(echo '${{ github.event.issue.body }}' | grep -i -A 3 "semgrep token" | tail -1 | sed 's/^[[:space:]]*//' || echo "")
-          if [ "$TOKEN" != "_No response_" ] && [ -n "$TOKEN" ] && [ "$TOKEN" != "semgrep_dummy_token_1234567890abcdef1234567890abcdef" ]; then
-            echo "has_token=true" >> $GITHUB_OUTPUT
-            echo "token=$TOKEN" >> $GITHUB_OUTPUT
-            echo "Token found: ***provided***"
-          else
-            echo "has_token=false" >> $GITHUB_OUTPUT
-            echo "No valid token found, using default"
-          fi
-
-          # Check deployment options
-          if echo '${{ github.event.issue.body }}' | grep -q "Include cleanup commands"; then
-            echo "include_cleanup=true" >> $GITHUB_OUTPUT
-          else
-            echo "include_cleanup=false" >> $GITHUB_OUTPUT
-          fi
-
-          if echo '${{ github.event.issue.body }}' | grep -q "Show logs after deployment"; then
-            echo "show_logs=true" >> $GITHUB_OUTPUT
-          else
-            echo "show_logs=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate Semgrep Rules Configuration
-        id: rules
-        run: |
-          SCAN_TARGET="${{ steps.parse.outputs.scan_target }}"
-
-          if [[ "$SCAN_TARGET" == *"Frontend"* ]]; then
-            echo "rules_path=./rules/frontend/" >> $GITHUB_OUTPUT
-            echo "rules_description=Frontend (JavaScript/TypeScript)" >> $GITHUB_OUTPUT
-          elif [[ "$SCAN_TARGET" == *"Backend"* ]]; then
-            echo "rules_path=./rules/backend/" >> $GITHUB_OUTPUT
-            echo "rules_description=Backend (Java)" >> $GITHUB_OUTPUT
-          elif [[ "$SCAN_TARGET" == *"Shared"* ]]; then
-            echo "rules_path=./rules/shared/" >> $GITHUB_OUTPUT
-            echo "rules_description=Shared (Common security)" >> $GITHUB_OUTPUT
-          elif [[ "$SCAN_TARGET" == *"All rules"* ]]; then
-            echo "rules_path=./rules/" >> $GITHUB_OUTPUT
-            echo "rules_description=All rules (Frontend + Backend + Shared)" >> $GITHUB_OUTPUT
-          else
-            echo "rules_path=./rules/" >> $GITHUB_OUTPUT
-            echo "rules_description=All rules (default)" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create Custom Values File
-        run: |
-          ENV="${{ steps.parse.outputs.environment }}"
-          echo "Using environment: '$ENV'"
-
-          # Validate environment
-          if [ -z "$ENV" ] || [ "$ENV" = "" ]; then
-            echo "Environment is empty, defaulting to 'dev'"
-            ENV="dev"
-          fi
-
-          # Check if environment file exists
-          if [ ! -f "./environments/$ENV/values.yaml" ]; then
-            echo "Environment file not found: ./environments/$ENV/values.yaml"
-            echo "Available environments:"
-            ls -la ./environments/
-            echo "Defaulting to dev environment"
-            ENV="dev"
-          fi
-
-          echo "Final environment: '$ENV'"
-          cp "./environments/$ENV/values.yaml" "./custom-values.yaml"
-
-          # Update rules path
-          sed -i "s|configPath: .*|configPath: ${{ steps.rules.outputs.rules_path }}|" ./custom-values.yaml
-
-          # Update token if provided
-          if [ "${{ steps.parse.outputs.has_token }}" == "true" ]; then
-            sed -i "s|token: .*|token: \"${{ steps.parse.outputs.token }}\"|" ./custom-values.yaml
-          fi
-
-          echo "Generated custom values file:"
-          cat ./custom-values.yaml
-
-      - name: Generate Deployment Script
-        run: |
-          ENV="${{ steps.parse.outputs.environment }}"
-          RULES_PATH="${{ steps.rules.outputs.rules_path }}"
-          RULES_DESC="${{ steps.rules.outputs.rules_description }}"
-
-          cat > deploy-semgrep.sh << EOF
-          #!/bin/bash
-          set -e
-
-          echo "🚀 Deploying Semgrep to Local Minikube"
-          echo "======================================="
-          echo "Environment: $ENV"
-          echo "Scan Target: $RULES_DESC"
-          echo "Rules Path: $RULES_PATH"
-          echo ""
-
-          # Prerequisites assumed to be installed locally
-          echo "📋 Using local Minikube, Helm, and kubectl installations"
-
-          # Set namespace
-          NAMESPACE="semgrep-$ENV"
-          echo "📦 Using namespace: \$NAMESPACE"
-
-          # Create namespace if it doesn't exist
-          echo "📋 Creating namespace if not exists..."
-          kubectl get ns \$NAMESPACE || kubectl create ns \$NAMESPACE
-
-          # Deploy Semgrep
-          echo ""
-          echo "🚀 Deploying Semgrep job..."
-          helm upgrade --install semgrep-scan ./k8s-jobs \\
-            --values ./custom-values.yaml \\
-            --namespace \$NAMESPACE \\
-            --wait \\
-            --timeout=300s
-
-          echo "✅ Deployment completed!"
-
-          # Show status
-          echo ""
-          echo "📊 Checking deployment status..."
-          kubectl get jobs,pods -l app=semgrep -n \$NAMESPACE
-
-          # Wait for job to start
-          echo ""
-          echo "⏳ Waiting for job to start..."
-          kubectl wait --for=condition=ready pod -l app=semgrep -n \$NAMESPACE --timeout=60s || echo "Job may still be starting..."
-
-          # Show logs
-          echo ""
-          echo "📋 Showing initial logs..."
-          kubectl logs -n \$NAMESPACE job/semgrep-scan --tail=20 || echo "Logs not available yet"
-
-          echo ""
-          echo "🎉 Deployment Summary:"
-          echo "======================"
-          echo "Environment: $ENV"
-          echo "Namespace: \$NAMESPACE"
-          echo "Scan Target: $RULES_DESC"
-          echo ""
-          echo "📊 Monitoring Commands:"
-          echo "kubectl logs -f -n \$NAMESPACE job/semgrep-scan"
-          echo "kubectl get jobs,pods -n \$NAMESPACE -l app=semgrep"
-          echo "kubectl describe job -n \$NAMESPACE semgrep-scan"
-          echo ""
-          echo "🧹 Cleanup Commands:"
-          echo "helm uninstall semgrep-scan -n \$NAMESPACE"
-          echo "kubectl delete namespace \$NAMESPACE"
-
-          EOF
-
-          chmod +x deploy-semgrep.sh
-
-      - name: Generate Monitoring Script
-        if: steps.parse.outputs.show_logs == 'true'
-        run: |
-          ENV="${{ steps.parse.outputs.environment }}"
-
-          cat > monitor-semgrep.sh << EOF
-          #!/bin/bash
-
-          echo "📊 Monitoring Semgrep Job"
-          echo "========================"
-
-          NAMESPACE="semgrep-$ENV"
-          echo "Environment: $ENV"
-          echo "Namespace: \$NAMESPACE"
-          echo ""
-
-          # Wait for job to start
-          echo "⏳ Waiting for job to start..."
-          kubectl wait --for=condition=ready pod -l app=semgrep -n \$NAMESPACE --timeout=60s || echo "Job may still be starting..."
-
-          # Show current status
-          echo ""
-          echo "📊 Current Status:"
-          kubectl get jobs,pods -l app=semgrep -n \$NAMESPACE
-
-          # Follow logs
-          echo ""
-          echo "📋 Following job logs (Press Ctrl+C to stop)..."
-          kubectl logs -f -n \$NAMESPACE job/semgrep-scan
-
-          # Show final status
-          echo ""
-          echo "📊 Final job status:"
-          kubectl get jobs -l app=semgrep -n \$NAMESPACE
-          kubectl describe job -n \$NAMESPACE semgrep-scan
-
-          EOF
-
-          chmod +x monitor-semgrep.sh
-
-      - name: Generate Cleanup Script
-        if: steps.parse.outputs.include_cleanup == 'true'
-        run: |
-          ENV="${{ steps.parse.outputs.environment }}"
-
-          cat > cleanup-semgrep.sh << EOF
-          #!/bin/bash
-
-          echo "🧹 Cleaning up Semgrep deployment"
-          echo "================================="
-
-          NAMESPACE="semgrep-$ENV"
-          echo "Environment: $ENV"
-          echo "Namespace: \$NAMESPACE"
-          echo ""
-
-          # Check if namespace exists
-          if ! kubectl get namespace \$NAMESPACE > /dev/null 2>&1; then
-            echo "❌ Namespace \$NAMESPACE not found"
-            echo "Available namespaces:"
-            kubectl get namespaces | grep semgrep || echo "No semgrep namespaces found"
-            exit 1
-          fi
-
-          # Show what will be deleted
-          echo "📋 Resources to be deleted:"
-          kubectl get all -n \$NAMESPACE -l app=semgrep || echo "No resources found"
-          echo ""
-
-          # Ask for confirmation
-          read -p "Are you sure you want to delete all Semgrep resources in namespace \$NAMESPACE? (y/N): " confirm
-          if [[ \$confirm != [yY] && \$confirm != [yY][eE][sS] ]]; then
-            echo "❌ Cleanup cancelled"
-            exit 0
-          fi
-
-          # Delete the Helm release
-          echo "🗑️  Uninstalling Helm release..."
-          helm uninstall semgrep-scan -n \$NAMESPACE || echo "Helm release not found"
-
-          # Clean up any remaining resources
-          echo "🗑️  Cleaning up remaining resources..."
-          kubectl delete jobs -l app=semgrep -n \$NAMESPACE || echo "No jobs to delete"
-          kubectl delete pods -l app=semgrep -n \$NAMESPACE || echo "No pods to delete"
-
-          # Optionally delete namespace
-          read -p "Do you want to delete the namespace \$NAMESPACE as well? (y/N): " delete_ns
-          if [[ \$delete_ns == [yY] || \$delete_ns == [yY][eE][sS] ]]; then
-            echo "🗑️  Deleting namespace..."
-            kubectl delete namespace \$NAMESPACE
-          fi
-
-          echo "✅ Cleanup completed!"
-
-          EOF
-
-          chmod +x cleanup-semgrep.sh
-
-      - name: Create Deployment Package
-        run: |
-          mkdir -p deployment-package
-          cp -r k8s-jobs deployment-package/
-          cp -r environments deployment-package/
-          cp -r rules deployment-package/
-          cp custom-values.yaml deployment-package/
-          cp deploy-semgrep.sh deployment-package/
-          [ -f monitor-semgrep.sh ] && cp monitor-semgrep.sh deployment-package/
-          [ -f cleanup-semgrep.sh ] && cp cleanup-semgrep.sh deployment-package/
-
-          # Create README
-          cat > deployment-package/README.md << EOF
-          # Semgrep Local Minikube Deployment
-
-          ## Configuration
-          - **Environment**: ${{ steps.parse.outputs.environment }}
-          - **Scan Target**: ${{ steps.rules.outputs.rules_description }}
-          - **Rules Path**: ${{ steps.rules.outputs.rules_path }}
-
-          ## Quick Start
-
-          1. **Deploy Semgrep**:
-             \`\`\`bash
-             ./deploy-semgrep.sh
-             \`\`\`
-
-          2. **Check Status**:
-             \`\`\`bash
-             kubectl get jobs,pods -l app=semgrep
-             \`\`\`
-
-          3. **View Results**:
-             \`\`\`bash
-             kubectl logs job/semgrep-scan
-             \`\`\`
-
-          EOF
-
-          if [ -f monitor-semgrep.sh ]; then
-            cat >> deployment-package/README.md << EOF
-          4. **Monitor Logs** (real-time):
-             \`\`\`bash
-             ./monitor-semgrep.sh
-             \`\`\`
-
-          EOF
-          fi
-
-          if [ -f cleanup-semgrep.sh ]; then
-            cat >> deployment-package/README.md << EOF
-          5. **Cleanup** (when done):
-             \`\`\`bash
-             ./cleanup-semgrep.sh
-             \`\`\`
-
-          EOF
-          fi
-
-          cat >> deployment-package/README.md << EOF
-          ## Manual Commands
-
-          If you prefer to run commands manually:
-
-          \`\`\`bash
-          # Deploy
-          helm upgrade --install semgrep-scan ./k8s-jobs --values ./custom-values.yaml
-
-          # Check status
-          kubectl get jobs,pods -l app=semgrep
-
-          # View logs
-          kubectl logs job/semgrep-scan
-
-          # Cleanup
-          helm uninstall semgrep-scan
-          \`\`\`
-          EOF
-
-      - name: Upload Deployment Package
-        uses: actions/upload-artifact@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
         with:
-          name: semgrep-minikube-deployment
-          path: deployment-package/
-          retention-days: 30
+          version: 'v3.15.4'
 
-      - name: Comment with Deployment Instructions
-        uses: actions/github-script@v7
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
         with:
-          script: |
-            const deploymentInfo = `
-            ## 🚀 Semgrep Minikube Deployment Ready!
+          version: 'v1.30.5'
 
-            **Configuration:**
-            - **Environment**: ${{ steps.parse.outputs.environment }}
-            - **Scan Target**: ${{ steps.rules.outputs.rules_description }}
-            - **Rules Path**: ${{ steps.rules.outputs.rules_path }}
+      - name: Set Namespace
+        id: set-namespace
+        run: echo "NAMESPACE=semgrep-${ENV}" >> $GITHUB_ENV
 
-            ### 📦 Deployment Package Created
+      - name: Create namespace if not exists
+        run: |
+          kubectl get ns ${{ env.NAMESPACE }} || kubectl create ns ${{ env.NAMESPACE }}
 
-            A complete deployment package has been generated and uploaded as an artifact. You can:
+      - name: Deploy Semgrep with Helm
+        shell: bash
+        run: |
+          echo "Deploying to environment: $ENV"
+          case "$ENV" in
+            dev)
+              helm upgrade --install semgrep-scan ./k8s-jobs \
+                -f environments/dev/values.yaml \
+                -n ${{ env.NAMESPACE }}
+              ;;
+            beta)
+              helm upgrade --install semgrep-scan ./k8s-jobs \
+                -f environments/beta/values.yaml \
+                --set token="${{ secrets.SEMGREP_TOKEN_BETA }}" \
+                -n ${{ env.NAMESPACE }}
+              ;;
+            prod)
+              helm upgrade --install semgrep-scan ./k8s-jobs \
+                -f environments/prod/values.yaml \
+                --set token="${{ secrets.SEMGREP_TOKEN_PROD }}" \
+                -n ${{ env.NAMESPACE }}
+              ;;
+            *)
+              echo "Invalid environment: $ENV"
+              exit 1
+              ;;
+          esac
 
-            1. **Download the artifact** from this workflow run
-            2. **Extract it** to your local machine
-            3. **Run the deployment script**
+      - name: Wait for Semgrep Job to be Ready
+        run: |
+          kubectl wait --for=condition=complete job/semgrep-scan -n ${{ env.NAMESPACE }} --timeout=300s
 
-            ### 🚀 Quick Deployment
+      - name: List Semgrep Pods
+        run: |
+          kubectl get pods -n ${{ env.NAMESPACE }}
 
-            After downloading and extracting the artifact:
-
-            \`\`\`bash
-            # Deploy Semgrep (assumes Minikube, Helm, kubectl are ready)
-            ./deploy-semgrep.sh
-
-            # Check results
-            kubectl logs job/semgrep-scan
-            \`\`\`
-
-            ### 📋 Manual Deployment
-
-            If you prefer manual commands:
-
-            \`\`\`bash
-            # Clone this repository
-            git clone https://github.com/${{ github.repository }}.git
-            cd gitops-semgrep
-
-            # Deploy with custom configuration
-            helm upgrade --install semgrep-scan ./k8s-jobs \\
-              --set environment=${{ steps.parse.outputs.environment }} \\
-              --set semgrep.configPath=${{ steps.rules.outputs.rules_path }} \\
-              --values ./environments/${{ steps.parse.outputs.environment }}/values.yaml
-
-            # Monitor the job
-            kubectl get jobs,pods -l app=semgrep
-            kubectl logs -f job/semgrep-scan
-            \`\`\`
-
-            `;
-
-            // Add cleanup section if requested
-            const includeCleanup = '${{ steps.parse.outputs.include_cleanup }}' === 'true';
-            const cleanupSection = includeCleanup ? `
-
-            ### 🧹 Cleanup
-
-            When you're done, run:
-            \`\`\`bash
-            ./cleanup-semgrep.sh
-            \`\`\`
-            ` : '';
-
-            const finalDeploymentInfo = deploymentInfo + cleanupSection + `
-
-            ### 📊 Monitoring
-
-            - **Job Status**: \`kubectl get jobs -l app=semgrep\`
-            - **Pod Status**: \`kubectl get pods -l app=semgrep\`
-            - **Logs**: \`kubectl logs job/semgrep-scan\`
-            - **Detailed Info**: \`kubectl describe job semgrep-scan\`
-
-            ---
-
-            **Need help?** Check the README.md file in the deployment package for detailed instructions.
-            `;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: finalDeploymentInfo
-            })
+      - name: Print Semgrep UI Access Info (only for dev)
+        if: env.ENV == 'dev'
+        shell: bash
+        run: |
+          echo "Semgrep Job access:"
+          echo "Minikube Service URL:"
+          minikube service semgrep-scan -n ${{ env.NAMESPACE }} --url || echo "Minikube might not be available"
+          echo "Manual Access Info:"
+          minikube ip || echo "Check Minikube IP manually"
+          kubectl get svc -n ${{ env.NAMESPACE }}
