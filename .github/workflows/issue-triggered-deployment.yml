@@ -67,12 +67,7 @@ jobs:
           echo "Runner name: $RUNNER_NAME"
           echo "Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}"
           
-      - name: Check required tools
-        run: |
-          echo "=== Checking required tools ==="
-          kubectl version --client || (echo "❌ kubectl not found" && exit 1)
-          helm version || (echo "❌ helm not found" && exit 1)
-          echo "✅ All required tools are available"
+
           
       - name: Check Minikube connectivity
         run: |

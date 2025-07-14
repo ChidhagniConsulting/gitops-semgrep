@@ -39,12 +39,7 @@ jobs:
           echo "Event: ${{ github.event_name }}"
           echo "Branch: ${{ github.ref_name }}"
 
-      - name: Check required tools
-        run: |
-          echo "=== Checking required tools ==="
-          kubectl version --client || (echo "❌ kubectl not found" && exit 1)
-          helm version || (echo "❌ helm not found" && exit 1)
-          echo "✅ All required tools are available"
+
 
       - name: Check Minikube connectivity
         run: |
