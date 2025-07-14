@@ -179,23 +179,12 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Install Minikube
+      - name: Verify Minikube connection
         run: |
-          echo "📦 Installing Minikube..."
-          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-          sudo install minikube-linux-amd64 /usr/local/bin/minikube
-          minikube version
-
-      - name: Start Minikube
-        run: |
-          echo "🚀 Starting Minikube cluster..."
-          minikube start --cpus=4 --memory=8192 --driver=docker || echo "Minikube already running"
-          minikube status
-          
-      - name: Configure kubectl context
-        run: |
-          kubectl config use-context minikube
+          echo "� Verifying connection to existing Minikube cluster..."
+          kubectl config current-context
           kubectl cluster-info
+          echo "✅ Connected to Minikube cluster"
 
       - name: Create namespace
         run: |
