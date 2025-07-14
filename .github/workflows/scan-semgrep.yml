@@ -24,7 +24,7 @@ env:
 jobs:
   # Lint and validate stage
   lint:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -93,7 +93,7 @@ jobs:
 
   # Build and test stage
   build-test:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: lint
     steps:
       - name: Checkout code
@@ -151,10 +151,9 @@ jobs:
 
   # Deploy to Minikube stage
   deploy-minikube:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: [lint, build-test]
-    # Run on push and workflow_dispatch, but not on PRs
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (needs.lint.result == 'success' && needs.build-test.result == 'success')
+    # No conditions - always run (for debugging)
     env:
       ENV: ${{ github.event.inputs.environment || 'dev' }}
       NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}
@@ -175,38 +174,48 @@ jobs:
 
       - name: Install Minikube
         run: |
-          echo "📦 Installing Minikube..."
-          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-          sudo install minikube-linux-amd64 /usr/local/bin/minikube
-          minikube version
+          Write-Host "📦 Installing Minikube..."
+          # Download Minikube for Windows
+          Invoke-WebRequest -Uri "https://storage.googleapis.com/minikube/releases/latest/minikube-windows-amd64.exe" -OutFile "minikube.exe"
+          # Add to PATH for current session
+          $env:PATH += ";$PWD"
+          # Verify installation
+          .\minikube.exe version
+        shell: powershell
 
       - name: Start Minikube
         run: |
-          echo "🚀 Starting Minikube cluster..."
-          minikube start --cpus=4 --memory=8192 --driver=docker || echo "Minikube already running"
-          minikube status
+          Write-Host "🚀 Starting Minikube cluster..."
+          .\minikube.exe start --cpus=4 --memory=8192 --driver=docker
+          if ($LASTEXITCODE -ne 0) { Write-Host "Minikube may already be running" }
+          .\minikube.exe status
+        shell: powershell
           
       - name: Configure kubectl context
         run: |
           kubectl config use-context minikube
           kubectl cluster-info
-          
+        shell: powershell
+
       - name: Create namespace
         run: |
-          echo "📦 Creating namespace: ${{ env.NAMESPACE }}"
-          kubectl get ns ${{ env.NAMESPACE }} || kubectl create ns ${{ env.NAMESPACE }}
+          Write-Host "📦 Creating namespace: ${{ env.NAMESPACE }}"
+          kubectl get ns ${{ env.NAMESPACE }}
+          if ($LASTEXITCODE -ne 0) { kubectl create ns ${{ env.NAMESPACE }} }
+        shell: powershell
           
       - name: Set Semgrep Token
         id: set-token
         run: |
-          if [ "${{ env.ENV }}" == "dev" ]; then
-            echo "Using dev token from values.yaml"
-            echo "token_override=" >> $GITHUB_OUTPUT
-          elif [ "${{ env.ENV }}" == "staging" ]; then
-            echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_STAGING }}" >> $GITHUB_OUTPUT
-          elif [ "${{ env.ENV }}" == "prod" ]; then
-            echo "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_PROD }}" >> $GITHUB_OUTPUT
-          fi
+          if ("${{ env.ENV }}" -eq "dev") {
+            Write-Host "Using dev token from values.yaml"
+            "token_override=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } elseif ("${{ env.ENV }}" -eq "staging") {
+            "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_STAGING }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } elseif ("${{ env.ENV }}" -eq "prod") {
+            "token_override=--set semgrep.token=${{ secrets.SEMGREP_TOKEN_PROD }}" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+        shell: powershell
           
       - name: Deploy to Minikube
         run: |
