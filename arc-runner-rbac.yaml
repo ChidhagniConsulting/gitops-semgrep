@@ -33,32 +33,5 @@ rules:
   verbs: ["get", "list", "create", "update", "patch", "delete"]
 
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: arc-runner-cluster-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: arc-runner-cluster-role
-subjects:
-- kind: ServiceAccount
-  name: arc-runner-set-gha-rs-no-permission
-  namespace: arc-runners
-
----
-# Additional binding for any other service accounts that might be created
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: arc-runner-cluster-binding-wildcard
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: arc-runner-cluster-role
-subjects:
-- kind: ServiceAccount
-  name: arc-runner-set-gha-rs-no-permission
-  namespace: arc-runners
-- kind: Group
-  name: system:serviceaccounts:arc-runners
+# Note: Apply this binding using kubectl command:
+# kubectl create clusterrolebinding arc-runner-binding --clusterrole=arc-runner-cluster-role --serviceaccount=arc-runners:arc-runner-set-gha-rs-no-permission
