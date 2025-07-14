@@ -18,7 +18,13 @@ jobs:
           echo "Condition Check - Has 'minikube' label: ${{ contains(github.event.issue.labels.*.name, 'minikube') }}"
 
   run-semgrep-minikube:
-    if: contains(github.event.issue.title, '[Semgrep Minikube]') || (contains(github.event.issue.labels.*.name, 'semgrep') && contains(github.event.issue.labels.*.name, 'minikube'))
+    if: |
+      contains(github.event.issue.title, '[Semgrep Minikube]') ||
+      contains(github.event.issue.title, 'Semgrep') ||
+      contains(github.event.issue.title, 'Minikube') ||
+      (contains(github.event.issue.labels.*.name, 'semgrep') && contains(github.event.issue.labels.*.name, 'minikube')) ||
+      contains(github.event.issue.body, 'Target Environment') ||
+      contains(github.event.issue.body, 'semgrep-minikube')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

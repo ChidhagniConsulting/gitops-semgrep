@@ -1,12 +1,26 @@
 name: "Run Semgrep in Minikube"
 description: "Trigger a Semgrep scan in your local Minikube cluster"
-title: "[Semgrep Minikube] "
+title: "[Semgrep Minikube] Scan Request"
 labels: ["semgrep", "automation", "minikube"]
 body:
   - type: markdown
     attributes:
       value: |
+        ## 🚀 Semgrep Minikube Deployment Request
+
         This issue will trigger a Semgrep scan in your local Minikube cluster using the Helm chart.
+
+        **Note**: This workflow is configured for local deployment based on your preferences.
+
+  - type: input
+    id: workflow_trigger
+    attributes:
+      label: "Workflow Trigger"
+      description: "This field helps identify the workflow to trigger"
+      value: "semgrep-minikube"
+    validations:
+      required: true
+
   - type: input
     id: target_environment
     attributes:
