@@ -13,6 +13,28 @@
 - ✅ Pure YAML (no bash scripts)
 - ✅ No SealedSecrets used
 
+## 🚀 Deployment Options
+
+### 🏠 Local Development (Recommended)
+Run Semgrep scans locally on your laptop using Minikube:
+
+```bash
+# Linux/macOS
+chmod +x deploy-local.sh
+./deploy-local.sh dev
+
+# Windows PowerShell
+.\deploy-local.ps1 -Environment dev
+```
+
+📖 **See [LOCAL-DEPLOYMENT-GUIDE.md](LOCAL-DEPLOYMENT-GUIDE.md) for detailed setup instructions.**
+
+### ☁️ GitHub Actions (CI/CD)
+Automated deployment via GitHub Actions workflow:
+- **Manual trigger**: Actions → Run workflow → Select environment
+- **Automatic**: Runs lint/build-test on pushes and PRs
+- **Deploy stage**: Only runs on manual workflow dispatch
+
 ## 📁 Folder Structure
 
 ```
@@ -36,6 +58,8 @@ gitops-semgrep/
 ├── .github/
 │   └── workflows/
 │       └── scan-semgrep.yml    # CI/CD pipeline trigger
+├── setup-minikube-dev.sh       # Linux/Mac setup script
+├── setup-minikube-dev.ps1      # Windows PowerShell setup script
 └── README.md
 ```
 
@@ -55,6 +79,20 @@ gitops-semgrep/
 
 ### Manual Commands for Minikube Dev Testing
 
+#### For Linux/Mac:
+```bash
+# Make script executable and run
+chmod +x setup-minikube-dev.sh
+./setup-minikube-dev.sh
+```
+
+#### For Windows PowerShell:
+```powershell
+# Run the PowerShell script
+.\setup-minikube-dev.ps1
+```
+
+#### Manual Commands:
 ```bash
 # Start Minikube
 minikube start --cpus=4 --memory=8192
@@ -100,7 +138,7 @@ Rules are organized by project type:
 1. Go to **Actions** tab in GitHub
 2. Select **Semgrep On-Demand Scan** workflow
 3. Click **Run workflow**
-4. Choose environment: `dev`, `beta`, or `prod`
+4. Choose environment: `dev`, `staging`, or `prod`
 5. Click **Run workflow**
 
 ## 🔐 Security
@@ -185,6 +223,44 @@ helm list -n semgrep-{env}
 kubectl describe job semgrep-scan-once -n semgrep-{env}
 ```
 
+## 🚨 CI Pipeline Issues & Solutions
+
+### Issue 1: Build-Test Failure
+**Problem**: The workflow was trying to validate staging/prod values files with token placeholders that Helm couldn't process.
+
+**Solution**: ✅ Fixed in workflow
+- Modified build-test job to only validate dev environment values
+- Staging/prod environments use GitHub Secrets for tokens
+- Added proper error handling and validation
+
+### Issue 2: Minikube Deployment Skipping
+**Problem**: Deployment was being skipped due to workflow conditions not being met.
+
+**Solution**: ✅ Fixed in workflow
+- Updated deployment conditions to handle different trigger types
+- Added proper environment variable handling
+- Improved job dependency management
+
+### Issue 3: Notification Errors
+**Problem**: Notification logic was failing because build-test failed.
+
+**Solution**: ✅ Fixed in workflow
+- Improved error handling in notification stage
+- Added proper status checking logic
+- Enhanced logging and debugging information
+
+### Manual Minikube Setup Commands
+
+If the CI pipeline is still having issues, you can run these commands manually:
+
+```bash
+# For Linux/Mac
+./setup-minikube-dev.sh
+
+# For Windows PowerShell
+.\setup-minikube-dev.ps1
+```
+
 ## 📈 Summary Table
 
 | Feature | Status |
@@ -196,6 +272,8 @@ kubectl describe job semgrep-scan-once -n semgrep-{env}
 | Self-hosted runner integration | ✅ |
 | Pure YAML (no bash scripts) | ✅ |
 | No SealedSecrets used | ✅ |
+| CI Pipeline fixes | ✅ |
+| Manual setup scripts | ✅ |
 
 # GitHub Repository Setup Guide
 

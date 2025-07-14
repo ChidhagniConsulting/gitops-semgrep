@@ -1,0 +1,33 @@
+# Default values for semgrep-job chart
+# This is a YAML-formatted file.
+
+# Job configuration
+job:
+  name: "semgrep-scan-once"
+  restartPolicy: "OnFailure"
+
+# Environment configuration
+environment: "dev"
+
+# Semgrep configuration
+semgrep:
+  token: ""
+  sendMetrics: "off"
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+
+# GitHub repository for scanning
+github:
+  repository: "ChidhagniConsulting/gitops-semgrep"
+
+# Additional labels
+labels:
+  app: "semgrep"
+  environment: "dev" 

@@ -1,33 +1,61 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Values.job.name | default "semgrep-scan-once" }}
+  name: {{ (.Values.job).name | default "semgrep-scan-once" }}
   labels:
-    app: semgrep
+    app: {{ (.Values.labels).app | default "semgrep" }}
     environment: {{ .Values.environment | default "dev" }}
 spec:
   template:
     metadata:
       labels:
-        app: semgrep
+        app: {{ (.Values.labels).app | default "semgrep" }}
         environment: {{ .Values.environment | default "dev" }}
     spec:
-      restartPolicy: {{ .Values.job.restartPolicy | default "OnFailure" }}
+      restartPolicy: {{ (.Values.job).restartPolicy | default "OnFailure" }}
+      initContainers:
+        - name: git-clone
+          image: alpine/git:latest
+          command: ["/bin/sh"]
+          args:
+            - "-c"
+            - |
+              echo "📥 Cloning repository..."
+              git clone https://github.com/{{ (.Values.github).repository | default "your-org/your-repo" }}.git /repo
+              cd /repo
+              echo "✅ Repository cloned successfully"
+              ls -la
+          volumeMounts:
+            - name: repo-volume
+              mountPath: /repo
       containers:
         - name: semgrep
           image: returntocorp/semgrep:latest
           command: ["semgrep"]
           args: 
-            - "--version"
+            - "--config=auto"
+            - "--json"
+            - "--output=/tmp/semgrep-results.json"
+            - "/repo"
           env:
             - name: SEMGREP_TOKEN
-              value: "{{ .Values.semgrep.token }}"
+              value: {{ (.Values.semgrep).token | default "" | quote }}
             - name: SEMGREP_SEND_METRICS
-              value: "off"
+              value: {{ (.Values.semgrep).sendMetrics | default "off" | quote }}
+          volumeMounts:
+            - name: repo-volume
+              mountPath: /repo
+            - name: results-volume
+              mountPath: /tmp
           resources:
             limits:
-              cpu: {{ .Values.resources.limits.cpu | quote }}
-              memory: {{ .Values.resources.limits.memory | quote }}
+              cpu: {{ ((.Values.resources).limits).cpu | default "1000m" | quote }}
+              memory: {{ ((.Values.resources).limits).memory | default "2Gi" | quote }}
             requests:
-              cpu: {{ .Values.resources.requests.cpu | quote }}
-              memory: {{ .Values.resources.requests.memory | quote }}
+              cpu: {{ ((.Values.resources).requests).cpu | default "500m" | quote }}
+              memory: {{ ((.Values.resources).requests).memory | default "1Gi" | quote }}
+      volumes:
+        - name: repo-volume
+          emptyDir: {}
+        - name: results-volume
+          emptyDir: {}

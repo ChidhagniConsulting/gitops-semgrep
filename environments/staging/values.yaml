@@ -1,0 +1,23 @@
+# Staging environment configuration
+# Uses token from GitHub Secrets for staging environment
+environment: staging
+github:
+  repository: your-org/gitops-semgrep
+
+semgrep:
+  token: ${SEMGREP_TOKEN_STAGING}
+  configPath: /repo/rules/
+  
+# Additional configuration options
+job:
+  name: semgrep-scan-once
+  restartPolicy: OnFailure
+  
+# Resource limits for staging environment
+resources:
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+  requests:
+    cpu: "1"
+    memory: "2Gi" 
