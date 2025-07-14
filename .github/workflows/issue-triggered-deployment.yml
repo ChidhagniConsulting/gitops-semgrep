@@ -30,14 +30,9 @@ jobs:
           SCAN_TARGET=$(echo '${{ github.event.issue.body }}' | grep -i "scan.*target\|what.*scan" -A 5 | grep -E "(frontend|backend|shared|all)" | head -1 | tr -d '[:space:]' || echo "all")
           echo "scan_target=${SCAN_TARGET}" >> $GITHUB_OUTPUT
           
-          # Check if cleanup is requested
-          CLEANUP=$(echo '${{ github.event.issue.body }}' | grep -i "cleanup" | wc -l)
-          echo "cleanup_requested=${CLEANUP}" >> $GITHUB_OUTPUT
-          
           echo "📋 Parsed values:"
           echo "  Environment: ${ENVIRONMENT}"
           echo "  Scan Target: ${SCAN_TARGET}"
-          echo "  Cleanup Requested: ${CLEANUP}"
           if [ -n "${SEMGREP_TOKEN}" ]; then
             echo "  Semgrep Token: ***provided***"
           else
@@ -86,15 +81,7 @@ jobs:
           kubectl get nodes
           echo "✅ Minikube is accessible"
           
-      - name: Cleanup previous deployments (if requested)
-        if: steps.parse.outputs.cleanup_requested > 0
-        run: |
-          echo "🧹 Cleaning up previous deployments..."
-          helm uninstall semgrep-scan || echo "No previous deployment found"
-          kubectl delete jobs -l app=semgrep || echo "No jobs to delete"
-          kubectl delete pods -l app=semgrep || echo "No pods to delete"
-          echo "✅ Cleanup completed"
-          
+
       - name: Configure scan target
         id: config
         run: |

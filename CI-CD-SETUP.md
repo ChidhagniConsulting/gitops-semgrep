@@ -38,10 +38,7 @@ Deploy Semgrep Job (to same Minikube cluster)
 **Trigger:** Manual only
 **Purpose:** Test that ARC runners are working correctly
 
-### 3. **Cleanup Workflow** (`cleanup-semgrep.yml`)
 
-**Trigger:** Manual only  
-**Purpose:** Clean up all Semgrep deployments from Minikube
 
 ## 🔄 How It Works
 
@@ -91,10 +88,7 @@ git push origin main
 2. Select **"Test ARC Runner"**  
 3. Click **"Run workflow"**
 
-### Cleanup:
-1. Go to **Actions** tab in GitHub
-2. Select **"Cleanup Semgrep Deployments"**
-3. Click **"Run workflow"**
+
 
 ## 🔧 Environment Configuration
 

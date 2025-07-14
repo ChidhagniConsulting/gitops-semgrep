@@ -6,7 +6,7 @@ When you click **"New Issue"** in your repository, you can trigger automated dep
 
 ## 📋 Available Issue Templates
 
-### 1. **"Deploy Semgrep to Local Minikube"** 
+### 1. **"Deploy Semgrep to Local Minikube"**
 **Use this for:** Deploying Semgrep scans to your local cluster
 
 **Required Information:**
