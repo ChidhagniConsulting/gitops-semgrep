@@ -149,11 +149,13 @@ jobs:
           "
           echo "✅ Kubernetes manifests valid"
 
-  # Deploy to Minikube stage
+  # Deploy to Minikube stage (GitHub Actions - for CI/CD testing)
+  # For local development, use the deploy-local.sh or deploy-local.ps1 scripts instead
   deploy-minikube:
     runs-on: ubuntu-latest
     needs: [lint, build-test]
-    # No conditions - always run (for debugging)
+    # Only run on workflow_dispatch for testing, skip on regular pushes/PRs
+    if: github.event_name == 'workflow_dispatch'
     env:
       ENV: ${{ github.event.inputs.environment || 'dev' }}
       NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}

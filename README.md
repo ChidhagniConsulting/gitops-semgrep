@@ -13,6 +13,28 @@
 - ✅ Pure YAML (no bash scripts)
 - ✅ No SealedSecrets used
 
+## 🚀 Deployment Options
+
+### 🏠 Local Development (Recommended)
+Run Semgrep scans locally on your laptop using Minikube:
+
+```bash
+# Linux/macOS
+chmod +x deploy-local.sh
+./deploy-local.sh dev
+
+# Windows PowerShell
+.\deploy-local.ps1 -Environment dev
+```
+
+📖 **See [LOCAL-DEPLOYMENT-GUIDE.md](LOCAL-DEPLOYMENT-GUIDE.md) for detailed setup instructions.**
+
+### ☁️ GitHub Actions (CI/CD)
+Automated deployment via GitHub Actions workflow:
+- **Manual trigger**: Actions → Run workflow → Select environment
+- **Automatic**: Runs lint/build-test on pushes and PRs
+- **Deploy stage**: Only runs on manual workflow dispatch
+
 ## 📁 Folder Structure
 
 ```
