@@ -154,8 +154,8 @@ jobs:
   deploy-minikube:
     runs-on: ubuntu-latest
     needs: [lint, build-test]
-    # Only run on workflow_dispatch for testing, skip on regular pushes/PRs
-    if: github.event_name == 'workflow_dispatch'
+    # Always run after successful lint and build-test
+    if: success()
     env:
       ENV: ${{ github.event.inputs.environment || 'dev' }}
       NAMESPACE: semgrep-${{ github.event.inputs.environment || 'dev' }}
