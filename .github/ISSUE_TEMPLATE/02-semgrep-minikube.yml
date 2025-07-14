@@ -22,4 +22,4 @@ body:
       description: "Any extra information or context?"
       placeholder: "Optional"
     validations:
-      required: false 
+      required: false
