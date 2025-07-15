@@ -1,6 +1,6 @@
 name: "Deploy Semgrep to Local Minikube"
 description: "Deploy GitOps Semgrep to your local Minikube cluster"
-title: "[Deploy] Semgrep to Minikube"
+title: ""
 labels: ["semgrep", "minikube", "deployment"]
 body:
   - type: markdown
