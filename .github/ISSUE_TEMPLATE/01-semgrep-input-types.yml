@@ -1,6 +1,6 @@
 name: "Semgrep Input Types Required"
 description: "Request input types for Semgrep rule configuration"
-title: ""
+title: "[Semgrep Input] "
 labels: ["semgrep", "input-required", "configuration"]
 body:
   - type: markdown
