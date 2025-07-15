@@ -21,7 +21,6 @@ on:
 
 jobs:
   deploy-semgrep:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'deployment') || contains(github.event.issue.labels.*.name, 'semgrep') || contains(github.event.issue.title, 'Deploy')
     runs-on: arc-runner-set
 
     env:
