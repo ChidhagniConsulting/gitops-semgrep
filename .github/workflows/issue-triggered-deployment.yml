@@ -1,8 +1,8 @@
 name: Deploy GitOps Semgrep
 
 on:
-  # issues:
-  #   types: [opened, edited]
+  issues:
+    types: [opened, edited]
   repository_dispatch:
     types: [trigger-semgrep-scan]
   workflow_dispatch:
