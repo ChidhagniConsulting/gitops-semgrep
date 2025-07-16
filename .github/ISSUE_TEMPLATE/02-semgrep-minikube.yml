@@ -1,4 +1,4 @@
-name: "Deploy Semgrep to Local Minikube"
+name: "Deploy Semgrep  "
 description: "Deploy GitOps Semgrep to your local Minikube cluster"
 title: "[Deploy] Semgrep to Minikube"
 labels: ["semgrep", "minikube", "deployment"]
@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        ## 🚀 Deploy Semgrep to Local Minikube
+        ## 🚀 Deploy Semgrep  
 
         This will generate the deployment commands for your local Minikube cluster.
 

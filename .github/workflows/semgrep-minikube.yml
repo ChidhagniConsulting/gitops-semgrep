@@ -1,4 +1,4 @@
-name: Deploy Semgrep to Minikube
+name: Deploy Semgrep
 
 on:
   push:
